@@ -223,7 +223,7 @@ bool rx_serial_check() {
     return false;
   }
 
-  if (serial_rx_port != USART_PORT_INVALID && serial_rx_port != profile.serial.rx) {
+  if (serial_rx_port != profile.serial.rx || serial_rx_port == USART_PORT_INVALID) {
     return false;
   }
 
