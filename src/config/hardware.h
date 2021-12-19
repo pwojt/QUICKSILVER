@@ -8,17 +8,17 @@
 #include "target.h"
 
 #ifdef STM32F411
-#define SYS_CLOCK_FREQ_HZ 108000000
-#define PWM_CLOCK_FREQ_HZ 108000000
-#define SPI_CLOCK_FREQ_HZ (SYS_CLOCK_FREQ_HZ / 2)
+#define SYS_CLOCK_FREQ_HZ 108000000L
+#define PWM_CLOCK_FREQ_HZ 108000000L
+#define SPI_CLOCK_FREQ_HZ (SYS_CLOCK_FREQ_HZ / 2L)
 
 #define LOOPTIME LOOPTIME_4K
 #endif
 
 #ifdef STM32F405
-#define SYS_CLOCK_FREQ_HZ 168000000
-#define PWM_CLOCK_FREQ_HZ 84000000
-#define SPI_CLOCK_FREQ_HZ (SYS_CLOCK_FREQ_HZ / 4)
+#define SYS_CLOCK_FREQ_HZ 168000000L
+#define PWM_CLOCK_FREQ_HZ 84000000L
+#define SPI_CLOCK_FREQ_HZ (SYS_CLOCK_FREQ_HZ / 4L)
 
 #if !defined(USE_SOFT_SPI_4WIRE) && !defined(USE_SOFT_SPI_3WIRE)
 #define LOOPTIME LOOPTIME_8K
@@ -49,6 +49,8 @@
 #define WITHIN_DTCM_RAM(p) (((uint32_t)p & 0xfffe0000) == 0x20000000)
 #define WITHIN_DMA_RAM(p) (((uint32_t)p & 0xfffe0000) == 0x30000000)
 #endif
+
+#define TICKS_PER_US (SYS_CLOCK_FREQ_HZ / 1000000L)
 
 #ifdef USE_FAST_RAM
 #define FAST_RAM __attribute__((section(".fast_ram"), aligned(4)))
