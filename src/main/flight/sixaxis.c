@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "blackbox.h"
 #include "debug.h"
 #include "drv_serial.h"
 #include "drv_spi_gyro.h"
@@ -211,6 +212,7 @@ void sixaxis_read() {
 
     state.gyro.axis[i] = filter_step(profile.filter.gyro[0].type, &filter[0], &filter_state[0][i], state.gyro.axis[i]);
     state.gyro.axis[i] = filter_step(profile.filter.gyro[1].type, &filter[1], &filter_state[1][i], state.gyro.axis[i]);
+    blackbox_set_debug(i, state.gyro.axis[i] * BLACKBOX_SCALE);
     state.gyro.axis[i] = smith_predictor_step(i, state.gyro.axis[i]);
   }
 }
