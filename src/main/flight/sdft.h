@@ -35,7 +35,7 @@ typedef enum {
 typedef struct {
   sdft_state_t state;
 
-  uint32_t idx;
+  int32_t idx;
 
   float sample_accumulator;
   float sample_avg;
@@ -43,6 +43,7 @@ typedef struct {
 
   float samples[SDFT_SAMPLE_SIZE];
   complex_float data[SDFT_BIN_COUNT];
+  complex_float data_1[SDFT_BIN_COUNT];
 
   float noise_floor;
   float magnitude[SDFT_BIN_COUNT];

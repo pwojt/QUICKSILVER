@@ -7,8 +7,9 @@
 #include "util/util.h"
 
 // from https://www.dsprelated.com/showarticle/776.php
-// citing E. Jacobsen and R. Lyons, “The Sliding DFT”
-// and E. Jacobsen and R. Lyons, “An Update to the Sliding DFT”
+// citing E. Jacobsen and R. Lyons, "The Sliding DFT"
+// and E. Jacobsen and R. Lyons, "An Update to the Sliding DFT"
+// updated to use R. Lyons and C. Howard, "Improvements to the Sliding Discrete Fourier Transform Algorithm"
 
 #define LOOPTIME_S (state.looptime_autodetect * 1e-6)
 
@@ -21,6 +22,7 @@
 
 static float r_to_N;
 static complex_float twiddle[SDFT_SAMPLE_SIZE];
+static float resonator[SDFT_SAMPLE_SIZE];
 
 static const uint32_t bin_min_index = (float)SDFT_MIN_HZ / SDFT_HZ_RESOLUTION + 0.5f;
 static const uint32_t bin_max_index = (float)SDFT_MAX_HZ / SDFT_HZ_RESOLUTION + 0.5f;
@@ -33,6 +35,7 @@ void sdft_init(sdft_t *sdft) {
   for (uint32_t i = 0; i < SDFT_SAMPLE_SIZE; i++) {
     const float factor = 2.0f * M_PI_F * (float)i / (float)SDFT_SAMPLE_SIZE;
     twiddle[i] = cexpf(j * factor);
+    resonator[i] = 2.0f * cosf(factor);
   }
 
   sdft->state = SDFT_UPDATE_MAGNITUE;
@@ -48,6 +51,7 @@ void sdft_init(sdft_t *sdft) {
 
   for (uint32_t i = 0; i < SDFT_BIN_COUNT; i++) {
     sdft->data[i] = 0.0f;
+    sdft->data_1[i] = 0.0f;
   }
 
   for (uint32_t peak = 0; peak < SDFT_PEAKS; peak++) {
@@ -57,14 +61,25 @@ void sdft_init(sdft_t *sdft) {
   }
 }
 
+static int32_t sdft_shift_index(int32_t idx, int32_t delta) {
+  int32_t index = idx + delta;
+  if (index < 0) {
+    index = SDFT_SAMPLE_SIZE + index;
+  }
+  if (index >= SDFT_SAMPLE_SIZE) {
+    index = index - SDFT_SAMPLE_SIZE;
+  }
+  return index;
+}
+
 bool sdft_push(sdft_t *sdft, float val) {
   bool batch_finished = false;
 
   const uint32_t bin_min = bin_batches * sdft->sample_count;
   const uint32_t bin_max = min_uint32(bin_min + bin_batches, SDFT_BIN_COUNT);
 
-  const float last_sample = r_to_N * sdft->samples[sdft->idx];
-
+  const float last_sample = sdft->samples[sdft->idx];
+  const float last_sample1 = sdft->samples[sdft_shift_index(sdft->idx, -1)];
   sdft->sample_accumulator += val;
   sdft->sample_count++;
 
@@ -79,10 +94,13 @@ bool sdft_push(sdft_t *sdft, float val) {
     batch_finished = true;
   }
 
-  const float delta = sdft->sample_avg - last_sample;
+  const float delta = (sdft->sample_avg - last_sample);
 
   for (uint32_t i = bin_min; i < bin_max; i++) {
-    sdft->data[i] = twiddle[i] * (SDFT_DAMPING_FACTOR * sdft->data[i] + delta);
+    //                        e^(2*pi*k/N) * (x(n) - x(n - N))  - x(n - 1) + Xk(n - 1) * 2cos(2*pi*k/N) - Xk(n - 2)
+    const complex_float val = twiddle[i] * delta - last_sample1 + sdft->data[i] * resonator[i] - sdft->data_1[i];
+    sdft->data_1[i] = sdft->data[i];
+    sdft->data[i] = val;
   }
 
   return batch_finished;
