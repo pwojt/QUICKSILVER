@@ -145,6 +145,8 @@ __attribute__((__used__)) int main() {
   imu_init();
   osd_clear();
 
+  reset_looptime();
+
   while (1) {
     scheduler_update();
   }
