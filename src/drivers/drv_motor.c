@@ -1,6 +1,5 @@
 #include "drv_motor.h"
 
-#include "motor_pins.h"
 #include "project.h"
 
 static float motor_values[MOTOR_PIN_MAX];
@@ -31,3 +30,12 @@ void motor_update() {
   motor_wait_for_ready();
   motor_write(motor_values);
 }
+
+#define MOTOR_PIN(port, pin, pin_af, timer, timer_channel) MAKE_MOTOR_PIN_DEF(port, pin, pin_af, timer, timer_channel),
+
+const volatile motor_pin_def_t motor_pin_defs[MOTOR_PIN_MAX] = {
+    {},
+#include "motor_pins.in"
+};
+
+#undef MOTOR_PIN

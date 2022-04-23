@@ -1,12 +1,6 @@
 #pragma once
 
 #include "config.h"
-
-#include "gpio_pins.h"
-#include "motor_pins.h"
-#include "spi_ports.h"
-#include "usart_ports.h"
-
 #include "target.h"
 
 typedef enum {

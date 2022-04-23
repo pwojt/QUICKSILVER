@@ -29,7 +29,10 @@
       .dma_tx = DMA_DEVICE_SPI##chan##_TX,          \
   },
 
-const spi_port_def_t spi_port_defs[SPI_PORTS_MAX] = {{}, SPI_PORTS};
+const spi_port_def_t spi_port_defs[SPI_PORTS_MAX] = {
+    {},
+#include "spi_ports.in"
+};
 
 #undef SPI_PORT
 
@@ -46,7 +49,10 @@ typedef struct {
       .hz = 0,                                      \
   },
 
-FAST_RAM static volatile spi_port_config_t spi_port_config[SPI_PORTS_MAX] = {{}, SPI_PORTS};
+FAST_RAM static volatile spi_port_config_t spi_port_config[SPI_PORTS_MAX] = {
+    {},
+#include "spi_ports.in"
+};
 
 #undef SPI_PORT
 
@@ -684,7 +690,8 @@ static void handle_dma_rx_isr(spi_ports_t port) {
 
 void spi_dma_isr(dma_device_t dev) {
   switch (dev) {
-    SPI_PORTS
+
+    // TODO: #include "spi_ports.in"
 
   default:
     break;

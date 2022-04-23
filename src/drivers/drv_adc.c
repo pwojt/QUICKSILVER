@@ -36,6 +36,14 @@ typedef struct {
 #define READY_TO_CONVERT(dev) LL_ADC_IsActiveFlag_EOCS(dev)
 #endif
 
+#ifndef VBAT_DIVIDER_R1
+#define VBAT_DIVIDER_R1 10000
+#endif
+
+#ifndef VBAT_DIVIDER_R2
+#define VBAT_DIVIDER_R2 1000
+#endif
+
 #define VREFINT_CAL (*(VREFINT_CAL_ADDR))
 #define VBAT_SCALE ((float)(VBAT_DIVIDER_R1 + VBAT_DIVIDER_R2) / (float)(VBAT_DIVIDER_R2) * (1.f / 1000.f))
 

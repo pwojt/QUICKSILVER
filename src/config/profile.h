@@ -180,7 +180,7 @@ typedef struct {
   uint8_t gyro_orientation;
   float torque_boost;
   float throttle_boost;
-  motor_pin_ident_t motor_pins[4];
+  motor_index_t motor_pins[4];
   float turtle_throttle_percent;
 } profile_motor_t;
 
@@ -316,41 +316,8 @@ typedef struct {
   MEMBER(pid, profile_pid_t)           \
   MEMBER(voltage, profile_voltage_t)
 
-typedef enum {
-  FEATURE_BRUSHLESS = (1 << 1),
-  FEATURE_OSD = (1 << 2),
-  FEATURE_BLACKBOX = (1 << 3),
-  FEATURE_DEBUG = (1 << 4),
-} target_feature_t;
-
-typedef struct {
-  const char *target_name;
-  const char *git_version;
-
-  uint32_t features;
-  rx_protocol_t rx_protocols[RX_PROTOCOL_MAX];
-  uint32_t quic_protocol_version;
-
-  const char *motor_pins[MOTOR_PIN_MAX];
-  const char *usart_ports[SOFT_SERIAL_PORTS_MAX];
-
-  uint8_t gyro_id;
-} target_info_t;
-
-#define TARGET_INFO_MEMBERS                            \
-  STR_MEMBER(target_name)                              \
-  STR_MEMBER(git_version)                              \
-  MEMBER(features, uint32)                             \
-  ARRAY_MEMBER(rx_protocols, RX_PROTOCOL_MAX, uint8)   \
-  MEMBER(quic_protocol_version, uint32)                \
-  STR_ARRAY_MEMBER(motor_pins, MOTOR_PIN_MAX)          \
-  STR_ARRAY_MEMBER(usart_ports, SOFT_SERIAL_PORTS_MAX) \
-  MEMBER(gyro_id, uint8)
-
 extern profile_t profile;
 extern const profile_t default_profile;
-
-extern target_info_t target_info;
 
 extern const pid_rate_preset_t pid_rate_presets[];
 extern const uint32_t pid_rate_presets_count;
@@ -363,4 +330,3 @@ cbor_result_t cbor_encode_profile_t(cbor_value_t *enc, const profile_t *p);
 cbor_result_t cbor_decode_profile_t(cbor_value_t *dec, profile_t *p);
 
 cbor_result_t cbor_encode_pid_rate_preset_t(cbor_value_t *enc, const pid_rate_preset_t *p);
-cbor_result_t cbor_encode_target_info_t(cbor_value_t *enc, const target_info_t *i);
