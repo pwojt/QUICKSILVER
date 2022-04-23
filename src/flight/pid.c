@@ -15,6 +15,8 @@
 // multiplier for pids at 3V - for PID_VOLTAGE_COMPENSATION - default 1.33f from H101 code
 #define PID_VC_FACTOR 1.33f
 
+#define PID_SIZE 3
+
 #define RELAX_FACTOR (RELAX_FACTOR_DEG * DEGTORAD)
 #define RELAX_FACTOR_YAW (RELAX_FACTOR_YAW_DEG * DEGTORAD)
 
