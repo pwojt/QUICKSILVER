@@ -17,17 +17,6 @@ typedef enum {
 #define MOTOR_BR 2
 #define MOTOR_FR 3
 
-typedef struct {
-  gpio_pins_t pin;
-} motor_pin_def_t;
-
-#define MAKE_MOTOR_PIN_DEF(port, _pin, pin_af, timer, timer_channel) \
-  {                                                                  \
-    .pin = PIN_IDENT(port, _pin),                                    \
-  }
-
-extern const volatile motor_pin_def_t motor_pin_defs[MOTOR_PIN_MAX];
-
 void motor_init();
 void motor_wait_for_ready();
 void motor_beep();

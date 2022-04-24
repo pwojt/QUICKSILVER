@@ -2,7 +2,7 @@
 
 #include "project.h"
 
-static float motor_values[MOTOR_PIN_MAX];
+static float motor_values[MOTOR_MAX];
 
 #if !defined(USE_PWM_DRIVER) && !defined(USE_DSHOT_DMA_DRIVER)
 void motor_init() {}
@@ -12,7 +12,7 @@ void motor_write(float *values) {}
 #endif
 
 void motor_set(uint8_t number, float pwm) {
-  if (number > MOTOR_PIN_MAX) {
+  if (number > MOTOR_MAX) {
     return;
   }
 
@@ -30,12 +30,3 @@ void motor_update() {
   motor_wait_for_ready();
   motor_write(motor_values);
 }
-
-#define MOTOR_PIN(port, pin, pin_af, timer, timer_channel) MAKE_MOTOR_PIN_DEF(port, pin, pin_af, timer, timer_channel),
-
-const volatile motor_pin_def_t motor_pin_defs[MOTOR_PIN_MAX] = {
-    {},
-#include "motor_pins.in"
-};
-
-#undef MOTOR_PIN

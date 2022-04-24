@@ -77,8 +77,8 @@ static dshot_gpio_port_t gpio_ports[DSHOT_MAX_PORT_COUNT] = {
 static uint32_t dshot_ports[MOTOR_MAX];
 static volatile DMA_RAM uint32_t port_dma_buffer[DSHOT_MAX_PORT_COUNT][DSHOT_DMA_BUFFER_SIZE];
 
-static void dshot_init_motor_pin(motor_pins_t index) {
-  const gpio_pins_t pin_id = motor_pin_defs[index].pin;
+static void dshot_init_motor_pin(uint32_t index) {
+  const gpio_pins_t pin_id = target.motor_pins[index];
   const gpio_pin_def_t *pin = &gpio_pin_defs[pin_id];
 
   LL_GPIO_InitTypeDef gpio_init;
@@ -199,7 +199,7 @@ void motor_init() {
   LL_TIM_EnableARRPreload(TIM1);
 
   for (uint32_t i = 0; i < MOTOR_MAX; i++) {
-    dshot_init_motor_pin(target.motor_pins[i]);
+    dshot_init_motor_pin(i);
   }
 
   for (uint32_t j = 0; j < gpio_port_count; j++) {
@@ -251,7 +251,7 @@ static void make_packet(uint8_t number, uint16_t value, bool telemetry) {
 }
 
 static void make_packet_all(uint16_t value, bool telemetry) {
-  for (uint32_t i = 0; i < MOTOR_PIN_MAX; i++) {
+  for (uint32_t i = 0; i < MOTOR_MAX; i++) {
     make_packet(profile.motor.motor_pins[i], value, telemetry);
   }
 }
@@ -280,7 +280,7 @@ static void dshot_dma_start() {
 
     for (uint8_t motor = 0; motor < MOTOR_MAX; motor++) {
       const uint32_t port = dshot_ports[motor];
-      const gpio_pins_t pin = motor_pin_defs[target.motor_pins[motor]].pin;
+      const gpio_pins_t pin = target.motor_pins[motor];
       const uint32_t motor_high = (gpio_pin_defs[pin].pin);
       const uint32_t motor_low = (gpio_pin_defs[pin].pin << 16);
 
@@ -304,8 +304,7 @@ static void dshot_dma_start() {
 
 void motor_wait_for_ready() {
 #ifdef STM32F4
-  // TODO: || spi_dma_is_ready(SPI_PORT1) == 0
-  while (dshot_dma_phase != 0)
+  while (dshot_dma_phase != 0 || spi_dma_is_ready(SPI_PORT1) == 0)
 #else
   while (dshot_dma_phase != 0)
 #endif
@@ -314,7 +313,7 @@ void motor_wait_for_ready() {
 
 void motor_write(float *values) {
   if (dir_change_done) {
-    for (uint32_t i = 0; i < MOTOR_PIN_MAX; i++) {
+    for (uint32_t i = 0; i < MOTOR_MAX; i++) {
       uint16_t value = 0;
 
       if (values[i] >= 0.0f) {
