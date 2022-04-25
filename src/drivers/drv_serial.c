@@ -6,16 +6,16 @@
 #include "profile.h"
 #include "project.h"
 
-usart_ports_t serial_rx_port = USART_PORT_INVALID;
-usart_ports_t serial_smart_audio_port = USART_PORT_INVALID;
-usart_ports_t serial_hdzero_port = USART_PORT_INVALID;
+serial_port_index_t serial_rx_port = SERIAL_PORT_INVALID;
+serial_port_index_t serial_smart_audio_port = SERIAL_PORT_INVALID;
+serial_port_index_t serial_hdzero_port = SERIAL_PORT_INVALID;
 
-serial_port_t *serial_ports[USART_PORTS_MAX];
+serial_t *serial_ports[SERIAL_PORT_MAX];
 
 #define USART usart_port_defs[port]
 
 // FUNCTION TO SET APB CLOCK TO USART BASED ON GIVEN UART
-void serial_enable_rcc(usart_ports_t port) {
+void serial_enable_rcc(serial_port_index_t port) {
   switch (usart_port_defs[port].channel_index) {
 #ifdef USART1
   case 1:
@@ -60,7 +60,7 @@ void serial_enable_rcc(usart_ports_t port) {
   }
 }
 
-void serial_enable_isr(usart_ports_t port) {
+void serial_enable_isr(serial_port_index_t port) {
   switch (usart_port_defs[port].channel_index) {
 #ifdef USART1
   case 1:
@@ -105,7 +105,7 @@ void serial_enable_isr(usart_ports_t port) {
   }
 }
 
-void serial_disable_isr(usart_ports_t port) {
+void serial_disable_isr(serial_port_index_t port) {
   switch (usart_port_defs[port].channel_index) {
 #ifdef USART1
   case 1:
@@ -150,7 +150,7 @@ void serial_disable_isr(usart_ports_t port) {
   }
 }
 
-void handle_usart_invert(usart_ports_t port, bool invert) {
+void handle_usart_invert(serial_port_index_t port, bool invert) {
 #if defined(STM32F4) && (defined(USART1_INVERTER_PIN) || defined(USART2_INVERTER_PIN) || defined(USART3_INVERTER_PIN) || defined(USART4_INVERTER_PIN) || defined(USART5_INVERTER_PIN) || defined(USART6_INVERTER_PIN))
   LL_GPIO_InitTypeDef gpio_init;
   gpio_init.Mode = LL_GPIO_MODE_OUTPUT;
@@ -232,8 +232,8 @@ void handle_usart_invert(usart_ports_t port, bool invert) {
 #endif
 }
 
-void serial_port_init(usart_ports_t port, LL_USART_InitTypeDef *usart_init, bool half_duplex, bool invert) {
-  if (port == USART_PORT_INVALID) {
+void serial_port_init(serial_port_index_t port, LL_USART_InitTypeDef *usart_init, bool half_duplex, bool invert) {
+  if (port == SERIAL_PORT_INVALID) {
     return;
   }
 
@@ -279,8 +279,8 @@ void serial_port_init(usart_ports_t port, LL_USART_InitTypeDef *usart_init, bool
 #endif
 }
 
-void serial_init(serial_port_t *serial, usart_ports_t port, uint32_t baudrate, uint8_t stop_bits, bool half_duplex) {
-  if (port == USART_PORT_INVALID) {
+void serial_init(serial_t *serial, serial_port_index_t port, uint32_t baudrate, uint8_t stop_bits, bool half_duplex) {
+  if (port == SERIAL_PORT_INVALID) {
     return;
   }
 
@@ -290,12 +290,12 @@ void serial_init(serial_port_t *serial, usart_ports_t port, uint32_t baudrate, u
   if (half_duplex) {
     gpio_init.OutputType = LL_GPIO_OUTPUT_OPENDRAIN;
     gpio_init.Pull = LL_GPIO_PULL_NO;
-    gpio_pin_init_af(&gpio_init, USART.tx_pin, USART.gpio_af);
+    gpio_pin_init_af(&gpio_init, target.serial_ports[port - 1].tx_pin, USART.gpio_af);
   } else {
     gpio_init.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
     gpio_init.Pull = LL_GPIO_PULL_UP;
-    gpio_pin_init_af(&gpio_init, USART.rx_pin, USART.gpio_af);
-    gpio_pin_init_af(&gpio_init, USART.tx_pin, USART.gpio_af);
+    gpio_pin_init_af(&gpio_init, target.serial_ports[port - 1].rx_pin, USART.gpio_af);
+    gpio_pin_init_af(&gpio_init, target.serial_ports[port - 1].tx_pin, USART.gpio_af);
   }
 
   LL_USART_InitTypeDef usart_init;
@@ -320,11 +320,11 @@ void serial_init(serial_port_t *serial, usart_ports_t port, uint32_t baudrate, u
   }
 }
 
-uint32_t serial_read_bytes(serial_port_t *serial, uint8_t *data, const uint32_t size) {
+uint32_t serial_read_bytes(serial_t *serial, uint8_t *data, const uint32_t size) {
   return circular_buffer_read_multi(serial->rx_buffer, data, size);
 }
 
-bool serial_write_bytes(serial_port_t *serial, const uint8_t *data, const uint32_t size) {
+bool serial_write_bytes(serial_t *serial, const uint8_t *data, const uint32_t size) {
   if (size == 0) {
     return true;
   }
@@ -341,8 +341,8 @@ bool serial_write_bytes(serial_port_t *serial, const uint8_t *data, const uint32
   return true;
 }
 
-bool serial_is_soft(usart_ports_t port) {
-  if (port < USART_PORTS_MAX) {
+bool serial_is_soft(serial_port_index_t port) {
+  if (port < SERIAL_PORT_MAX) {
     return false;
   }
   return true;
@@ -376,23 +376,21 @@ bool serial_is_soft(usart_ports_t port) {
 
 #define GPIO_AF_USART8 GPIO_AF8_UART8
 
-#define USART_PORT(chan, rx, tx)      \
+#define SERIAL_PORT(chan)             \
   {                                   \
       .channel_index = chan,          \
       .channel = USART##chan,         \
       .gpio_af = GPIO_AF_USART##chan, \
-      .rx_pin = rx,                   \
-      .tx_pin = tx,                   \
   },
 
-usart_port_def_t usart_port_defs[USART_PORTS_MAX] = {
+usart_port_def_t usart_port_defs[SERIAL_PORT_MAX] = {
     {},
-#include "usart_ports.in"
+#include "serial_ports.in"
 };
 
-#undef USART_PORT
+#undef SERIAL_PORT
 
-void handle_serial_isr(serial_port_t *serial) {
+void handle_serial_isr(serial_t *serial) {
   const usart_port_def_t *port = &usart_port_defs[serial->port];
 
   if (LL_USART_IsEnabledIT_TC(port->channel) && LL_USART_IsActiveFlag_TC(port->channel)) {
@@ -418,7 +416,7 @@ void handle_serial_isr(serial_port_t *serial) {
   }
 }
 
-void handle_usart_isr(usart_ports_t port) {
+void handle_usart_isr(serial_port_index_t port) {
   if (serial_ports[port]) {
     handle_serial_isr(serial_ports[port]);
     return;
@@ -447,14 +445,14 @@ void handle_usart_isr(usart_ports_t port) {
 
 // we need handlers for both U_S_ART and UART.
 // simply define both for every enabled port.
-#define USART_PORT(channel)                 \
-  void USART##channel##_IRQHandler() {      \
-    handle_usart_isr(USART_IDENT(channel)); \
-  }                                         \
-  void UART##channel##_IRQHandler() {       \
-    handle_usart_isr(USART_IDENT(channel)); \
+#define SERIAL_PORT(channel)                 \
+  void USART##channel##_IRQHandler() {       \
+    handle_usart_isr(SERIAL_IDENT(channel)); \
+  }                                          \
+  void UART##channel##_IRQHandler() {        \
+    handle_usart_isr(SERIAL_IDENT(channel)); \
   }
 
-// TODO:
+#include "serial_ports.in"
 
-#undef USART_PORT
+#undef SERIAL_PORT

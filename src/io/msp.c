@@ -262,13 +262,13 @@ static void msp_process_serial_cmd(msp_t *msp, msp_magic_t magic, uint16_t cmd, 
   }
 
   case MSP2_COMMON_SERIAL_CONFIG: {
-    const uint8_t uart_count = USART_PORTS_MAX - 1;
+    const uint8_t uart_count = SERIAL_PORT_MAX - 1;
     uint8_t data[1 + uart_count * 5];
 
     data[0] = uart_count;
 
     for (uint32_t i = 0; i < uart_count; i++) {
-      const usart_ports_t port = i + 1;
+      const serial_port_index_t port = i + 1;
       data[1 + i * 5] = port;
 
       uint32_t function = 0;

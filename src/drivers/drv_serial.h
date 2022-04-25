@@ -26,37 +26,34 @@ typedef enum {
 #define RX_SERIAL_PROTOCOL_MAX RX_SERIAL_PROTOCOL_REDPINE_INVERTED
 
 typedef struct {
-  usart_ports_t port;
+  serial_port_index_t port;
 
   circular_buffer_t *rx_buffer;
   circular_buffer_t *tx_buffer;
-} serial_port_t;
+} serial_t;
 
 typedef struct {
   uint8_t channel_index;
   USART_TypeDef *channel;
 
   uint32_t gpio_af;
-
-  gpio_pins_t rx_pin;
-  gpio_pins_t tx_pin;
 } usart_port_def_t;
 
-extern usart_port_def_t usart_port_defs[USART_PORTS_MAX];
+extern usart_port_def_t usart_port_defs[SERIAL_PORT_MAX];
 
-extern usart_ports_t serial_rx_port;
-extern usart_ports_t serial_smart_audio_port;
-extern usart_ports_t serial_hdzero_port;
+extern serial_port_index_t serial_rx_port;
+extern serial_port_index_t serial_smart_audio_port;
+extern serial_port_index_t serial_hdzero_port;
 
 void serial_rx_init(rx_serial_protocol_t rx_serial_protocol);
 
-void serial_enable_rcc(usart_ports_t port);
-void serial_port_init(usart_ports_t port, LL_USART_InitTypeDef *usart_init, bool half_duplex, bool invert);
-void serial_enable_isr(usart_ports_t port);
-void serial_disable_isr(usart_ports_t port);
+void serial_enable_rcc(serial_port_index_t port);
+void serial_port_init(serial_port_index_t port, LL_USART_InitTypeDef *usart_init, bool half_duplex, bool invert);
+void serial_enable_isr(serial_port_index_t port);
+void serial_disable_isr(serial_port_index_t port);
 
-void serial_init(serial_port_t *serial, usart_ports_t port, uint32_t baudrate, uint8_t stop_bits, bool half_duplex);
-uint32_t serial_read_bytes(serial_port_t *serial, uint8_t *data, const uint32_t size);
-bool serial_write_bytes(serial_port_t *serial, const uint8_t *data, const uint32_t size);
+void serial_init(serial_t *serial, serial_port_index_t port, uint32_t baudrate, uint8_t stop_bits, bool half_duplex);
+uint32_t serial_read_bytes(serial_t *serial, uint8_t *data, const uint32_t size);
+bool serial_write_bytes(serial_t *serial, const uint8_t *data, const uint32_t size);
 
-bool serial_is_soft(usart_ports_t port);
+bool serial_is_soft(serial_port_index_t port);
