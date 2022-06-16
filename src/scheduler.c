@@ -10,6 +10,12 @@
 #include "tasks.h"
 #include "util/cbor_helper.h"
 
+#define MSP_RETURN 0xFFFFFFE9
+#define PSP_RETURN 0xFFFFFFED
+
+//#define MSP_RETURN 0xFFFFFFF9
+//#define PSP_RETURN 0xFFFFFFFD
+
 #define TASK_AVERAGE_SAMPLES 32
 #define TASK_RUNTIME_REDUCTION 0.75
 #define TASK_RUNTIME_MARGIN 1.25
@@ -24,71 +30,90 @@ uint8_t blown_loop_counter;
 static uint32_t lastlooptime;
 
 static FAST_RAM task_t *task_queue[TASK_MAX];
-static FAST_RAM uint32_t task_queue_size = 0;
+static volatile uint8_t task_index = TASK_MAX;
+static volatile bool scheduler_active = false;
 
-static bool task_queue_contains(task_t *task) {
-  for (uint32_t i = 0; i < task_queue_size; i++) {
-    if (task_queue[i] == task) {
-      return true;
-    }
-  }
-  return false;
+#define current_task task_queue[task_index]
+
+static volatile uint8_t task_mask = 0;
+static volatile uint32_t start_cycles = 0;
+
+static inline uint32_t scheduler_cycles() {
+  return DWT->CYCCNT;
 }
 
-static bool task_queue_push(task_t *task) {
-  if (task_queue_size >= TASK_MAX || task_queue_contains(task)) {
-    return false;
-  }
-  for (uint32_t i = 0; i < TASK_MAX; i++) {
-    if (task_queue[i] != NULL && task_queue[i]->priority <= task->priority) {
-      continue;
-    }
-
-    memcpy(task_queue + i + 1, task_queue + i, (task_queue_size - i) * sizeof(task_t *));
-    task_queue[i] = task;
-    task_queue_size++;
-    return true;
-  }
-  return false;
+static inline void task_save_context() {
+  uint32_t scratch;
+  asm volatile("MRS %0, psp\n"
+               "TST lr, #0x10\n"
+               "IT EQ\n"
+               "VSTMDBEQ %0!, {s16-s31}\n"
+               "STMDB %0!, {r4-r11, lr}\n"
+               "MSR psp, %0\n"
+               : "=r"(scratch));
 }
 
-static bool should_run_task(const uint32_t start_cycles, uint8_t task_mask, task_t *task) {
-  if ((task_mask & task->mask) == 0) {
-    // task shall not run in this firmware state
-    return false;
-  }
-
-  if ((int32_t)(task->last_run_time - start_cycles) > 0) {
-    // task was already run this loop
-    return false;
-  }
-
-  const bool poll_result = task->poll_func == NULL || task->poll_func();
-  if (!poll_result && task->period == 0) {
-    // task has polled false and does not need updating due too a period
-    return false;
-  }
-
-  if (!poll_result && task->period != 0 && (time_cycles() - task->last_run_time) < US_TO_CYCLES(task->period)) {
-    // task has a period, but its not up yet
-    return false;
-  }
-
-  const int32_t time_left = US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER) - (time_cycles() - start_cycles);
-  if (task->priority != TASK_PRIORITY_REALTIME && task->runtime_worst > time_left) {
-    // we dont have any time left this loop and task is not realtime
-    task->runtime_worst *= TASK_RUNTIME_REDUCTION;
-    return false;
-  }
-
-  return true;
+static inline void task_load_context() {
+  uint32_t scratch;
+  asm volatile("MRS %0, psp\n"
+               "LDMFD %0!, {r4-r11, lr}\n"
+               "TST lr, #0x10\n"
+               "IT EQ\n"
+               "VLDMIAEQ %0!, {S16-S31}\n"
+               "MSR psp, %0\n"
+               "BX lr\n"
+               : "=r"(scratch));
 }
 
-static void do_run_task(task_t *task) {
-  const uint32_t start = time_cycles();
-  task->last_run_time = start;
-  task->func();
-  const int32_t time_taken = time_cycles() - start;
+static inline void kernel_save_context() {
+  uint32_t scratch;
+  asm volatile("MRS %0, msp\n"
+               "TST lr, #0x10\n"
+               "IT EQ\n"
+               "VSTMDBEQ %0!, {s16-s31}\n"
+               "STMDB %0!, {r4-r11, lr}\n"
+               "MSR msp, %0\n"
+               : "=r"(scratch));
+}
+
+static inline void kernel_load_context() {
+  uint32_t scratch;
+  asm volatile("MRS %0, msp\n"
+               "LDMFD %0!, {r4-r11, lr}\n"
+               "TST lr, #0x10\n"
+               "IT EQ\n"
+               "VLDMIAEQ %0!, {S16-S31}\n"
+               "MSR msp, %0\n"
+               "BX lr\n"
+               : "=r"(scratch));
+}
+
+void task_return_function();
+
+static inline void task_reset(task_t *task) {
+  void *stack_addr = task->stack + TASK_STACK_SIZE;
+
+  const uint32_t stack_size = sizeof(task_hw_stack_t) + sizeof(task_sw_stack_t);
+  uint32_t *ptr = (uint32_t *)(stack_addr - stack_size);
+  for (uint32_t i = 0; i < stack_size / 4; i++) {
+    ptr[i] = 0;
+  }
+
+  task_hw_stack_t *hw_stack = (task_hw_stack_t *)(stack_addr - sizeof(task_hw_stack_t));
+  hw_stack->pc = (uint32_t)task->func;
+  hw_stack->lr = (uint32_t)task_return_function;
+  hw_stack->psr = 0x21000000;
+
+  task_sw_stack_t *sw_stack = (task_sw_stack_t *)(stack_addr - sizeof(task_hw_stack_t) - sizeof(task_sw_stack_t));
+  sw_stack->lr = PSP_RETURN;
+
+  task->sp = stack_addr - stack_size;
+}
+
+void task_return_function() {
+  task_t *task = current_task;
+
+  const int32_t time_taken = scheduler_cycles() - task->last_run_time;
 
   task->runtime_current = time_taken;
 
@@ -107,28 +132,121 @@ static void do_run_task(task_t *task) {
   if (task->runtime_worst < (task->runtime_avg * TASK_RUNTIME_MARGIN)) {
     task->runtime_worst = task->runtime_avg * TASK_RUNTIME_MARGIN;
   }
+
+  task->completed = true;
+
+  task_yield();
+
+  while (true)
+    __WFI();
 }
 
-static void run_tasks(const uint32_t start_cycles) {
-  uint8_t task_mask = 0;
+static uint32_t task_queue_size = 0;
 
-  if (flags.on_ground && !flags.arm_state) {
-    task_mask |= TASK_MASK_ON_GROUND;
+static bool task_queue_contains(task_t *task) {
+  for (uint32_t i = 0; i < task_queue_size; i++) {
+    if (task_queue[i] == task) {
+      return true;
+    }
   }
-  if (flags.in_air || flags.arm_state) {
-    task_mask |= TASK_MASK_IN_AIR;
+  return false;
+}
+
+static bool task_queue_push(task_t *task) {
+  if (task_queue_size >= TASK_MAX || task_queue_contains(task)) {
+    return false;
   }
 
-  uint32_t task_index = 0;
-  while ((time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
-    task_t *task = task_queue[task_index];
-    task_index = (task_index + 1) % task_queue_size;
+  task_reset(task);
 
-    if (!should_run_task(start_cycles, task_mask, task)) {
+  for (uint32_t i = 0; i < TASK_MAX; i++) {
+    if (task_queue[i] != NULL && task_queue[i]->priority <= task->priority) {
       continue;
     }
 
-    do_run_task(task);
+    memcpy(task_queue + i + 1, task_queue + i, (task_queue_size - i) * sizeof(task_t *));
+    task_queue[i] = task;
+    task_queue_size++;
+    return true;
+  }
+  return false;
+}
+
+static inline bool should_run_task(const uint32_t start_cycles, uint8_t task_mask, task_t *task) {
+  if ((task_mask & task->mask) == 0) {
+    // task shall not run in this firmware state
+    return false;
+  }
+
+  if ((int32_t)(task->last_run_time - start_cycles) > 0 && current_task->completed) {
+    // task was already run this loop
+    return false;
+  }
+
+  if (task->period != 0 && (scheduler_cycles() - task->last_run_time) < US_TO_CYCLES(task->period)) {
+    // task has a period, but its not up yet
+    return false;
+  }
+
+  const int32_t time_left = US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER) - (scheduler_cycles() - start_cycles);
+  if (task->priority != TASK_PRIORITY_REALTIME && task->runtime_worst > time_left) {
+    // we dont have any time left this loop and task is not realtime
+    task->runtime_worst *= TASK_RUNTIME_REDUCTION;
+    return false;
+  }
+
+  return true;
+}
+
+static inline bool select_task() {
+  while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
+    task_index = (task_index + 1) % TASK_MAX;
+
+    if (should_run_task(start_cycles, task_mask, current_task)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void task_yield() {
+  if (!scheduler_active) {
+    return;
+  }
+
+  if ((SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk)) {
+    SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
+  } else {
+    asm volatile("SVC 0");
+  }
+}
+
+__attribute__((isr)) void SVC_Handler() {
+  SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
+}
+
+__attribute__((isr, naked)) void PendSV_Handler() {
+  if (task_index < TASK_MAX) {
+    task_save_context();
+    if (current_task->completed) {
+      task_reset(current_task);
+    } else {
+      current_task->sp = (void *)__get_PSP();
+    }
+  } else {
+    kernel_save_context();
+    task_index = TASK_MAX - 1;
+  }
+
+  if (select_task()) {
+    current_task->last_run_time = scheduler_cycles();
+    current_task->completed = false;
+
+    __set_PSP((uint32_t)current_task->sp);
+    task_load_context();
+  } else {
+    task_index = TASK_MAX;
+    kernel_load_context();
   }
 }
 
@@ -185,10 +303,14 @@ void scheduler_init() {
   for (uint32_t i = 0; i < TASK_MAX; i++) {
     task_queue_push(&tasks[i]);
   }
+
+  NVIC_SetPriority(SVCall_IRQn, 0);
+  NVIC_SetPriority(PendSV_IRQn, 0xFF);
 }
 
 void scheduler_update() {
-  const uint32_t cycles = time_cycles();
+  start_cycles = scheduler_cycles();
+
   const uint32_t time = time_micros();
   state.looptime_us = ((uint32_t)(time - lastlooptime));
   lastlooptime = time;
@@ -211,7 +333,17 @@ void scheduler_update() {
     state.armtime += state.looptime;
   }
 
-  run_tasks(cycles);
+  task_mask = 0;
+
+  if (flags.on_ground && !flags.arm_state) {
+    task_mask |= TASK_MASK_ON_GROUND;
+  }
+  if (flags.in_air || flags.arm_state) {
+    task_mask |= TASK_MASK_IN_AIR;
+  }
+
+  scheduler_active = true;
+  task_yield();
 
   state.cpu_load = (time_micros() - lastlooptime);
   state.loop_counter++;

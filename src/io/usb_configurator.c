@@ -130,6 +130,18 @@ void usb_serial_passthrough(usart_ports_t port, uint32_t baudrate, uint8_t stop_
 #pragma GCC diagnostic ignored "-Wdouble-promotion"
 // This function will be where all usb send/receive coms live
 void usb_configurator() {
+  if (!usb_detect()) {
+    flags.usb_active = 0;
+    motor_test.active = 0;
+    return;
+  }
+
+  flags.usb_active = 1;
+#ifndef ALLOW_USB_ARMING
+  if (rx_aux_on(AUX_ARMING))
+    flags.arm_safety = 1; // final safety check to disallow arming during USB operation
+#endif
+
   uint32_t buffer_size = 1;
   static uint8_t buffer[USB_BUFFER_SIZE];
 

@@ -3,8 +3,9 @@
 #include "project.h"
 #include "scheduler.h"
 
+#define TASK_STACK_SIZE 2048
+
 typedef enum {
-  TASK_GYRO,
   TASK_MAIN,
   TASK_RX,
   TASK_USB,

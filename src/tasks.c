@@ -21,6 +21,8 @@
 #include "rx.h"
 
 void task_main() {
+  sixaxis_read();
+
   // all flight calculations and motors
   control();
 
@@ -49,39 +51,18 @@ void task_main() {
   buzzer_update();
 }
 
-bool task_usb_poll() {
-  // TODO: this function should not modify state
-
-  if (usb_detect()) {
-    flags.usb_active = 1;
-#ifndef ALLOW_USB_ARMING
-    if (flags.arm_switch)
-      flags.arm_safety = 1; // final safety check to disallow arming during USB operation
-#endif
-    return usb_serial_available();
-  }
-
-  flags.usb_active = 0;
-  motor_test.active = 0;
-
-  return false;
-}
-
-__weak bool rx_poll() {
-  return true;
-}
+uint8_t task_stacks[TASK_MAX][TASK_STACK_SIZE];
 
 FAST_RAM task_t tasks[TASK_MAX] = {
-    [TASK_GYRO] = CREATE_TASK("GYRO", NULL, TASK_MASK_ALWAYS, TASK_PRIORITY_REALTIME, 0, NULL, sixaxis_read),
-    [TASK_MAIN] = CREATE_TASK("MAIN", NULL, TASK_MASK_ALWAYS, TASK_PRIORITY_REALTIME, 0, NULL, task_main),
-    [TASK_RX] = CREATE_TASK("RX", NULL, TASK_MASK_ALWAYS, TASK_PRIORITY_HIGH, 0, rx_poll, rx_update),
+    [TASK_MAIN] = CREATE_TASK("MAIN", NULL, task_stacks[TASK_MAIN], TASK_MASK_ALWAYS, TASK_PRIORITY_REALTIME, 0, task_main),
+    [TASK_RX] = CREATE_TASK("RX", NULL, task_stacks[TASK_RX], TASK_MASK_ALWAYS, TASK_PRIORITY_HIGH, 0, rx_update),
 
-    [TASK_USB] = CREATE_TASK("USB", NULL, TASK_MASK_ON_GROUND, TASK_PRIORITY_LOW, 0, task_usb_poll, usb_configurator),
+    [TASK_USB] = CREATE_TASK("USB", NULL, task_stacks[TASK_USB], TASK_MASK_ON_GROUND, TASK_PRIORITY_LOW, 0, usb_configurator),
 #ifdef ENABLE_BLACKBOX
-    [TASK_BLACKBOX] = CREATE_TASK("BLACKBOX", NULL, TASK_MASK_ALWAYS, TASK_PRIORITY_HIGH, (LOOPTIME * BLACKBOX_RATE), NULL, blackbox_update),
+    [TASK_BLACKBOX] = CREATE_TASK("BLACKBOX", NULL, task_stacks[TASK_BLACKBOX], TASK_MASK_ALWAYS, TASK_PRIORITY_HIGH, (LOOPTIME * BLACKBOX_RATE), blackbox_update),
 #endif
 #ifdef ENABLE_OSD
-    [TASK_OSD] = CREATE_TASK("OSD", NULL, TASK_MASK_ALWAYS, TASK_PRIORITY_MEDIUM, 1000, NULL, osd_display),
+    [TASK_OSD] = CREATE_TASK("OSD", NULL, task_stacks[TASK_OSD], TASK_MASK_ALWAYS, TASK_PRIORITY_MEDIUM, 0, osd_display),
 #endif
-    [TASK_VTX] = CREATE_TASK("VTX", NULL, TASK_MASK_ON_GROUND, TASK_PRIORITY_LOW, 0, NULL, vtx_update),
+    [TASK_VTX] = CREATE_TASK("VTX", NULL, task_stacks[TASK_VTX], TASK_MASK_ON_GROUND, TASK_PRIORITY_LOW, 0, vtx_update),
 };

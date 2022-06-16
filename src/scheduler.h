@@ -22,6 +22,47 @@ typedef enum {
 typedef void (*task_function_t)();
 typedef bool (*task_poll_function_t)();
 
+// This defines the stack that is saved  by the hardware
+typedef struct {
+  uint32_t r0;
+  uint32_t r1;
+  uint32_t r2;
+  uint32_t r3;
+  uint32_t r12;
+  uint32_t lr;
+  uint32_t pc;
+  uint32_t psr;
+} task_hw_stack_t;
+
+// This defines the stack that must be saved by the software
+typedef struct {
+  uint32_t r4;
+  uint32_t r5;
+  uint32_t r6;
+  uint32_t r7;
+  uint32_t r8;
+  uint32_t r9;
+  uint32_t r10;
+  uint32_t r11;
+  uint32_t lr;
+  uint32_t s16;
+  uint32_t s17;
+  uint32_t s18;
+  uint32_t s19;
+  uint32_t s20;
+  uint32_t s21;
+  uint32_t s22;
+  uint32_t s23;
+  uint32_t s24;
+  uint32_t s25;
+  uint32_t s26;
+  uint32_t s27;
+  uint32_t s28;
+  uint32_t s29;
+  uint32_t s30;
+  uint32_t s31;
+} task_sw_stack_t;
+
 typedef struct {
   const char *name;
   const char *subname;
@@ -30,8 +71,10 @@ typedef struct {
 
   task_priority_t priority;
 
-  task_poll_function_t poll_func;
   task_function_t func;
+  void *stack;
+  void *sp;
+  bool completed;
 
   uint32_t last_run_time;
   uint32_t period;
@@ -45,25 +88,29 @@ typedef struct {
   uint32_t runtime_avg_sum;
 } task_t;
 
-#define CREATE_TASK(p_name, p_subname, p_mask, p_priority, p_period, p_poll_func, p_func) \
-  {                                                                                       \
-    .name = p_name,                                                                       \
-    .subname = p_subname,                                                                 \
-    .mask = p_mask,                                                                       \
-    .priority = p_priority,                                                               \
-    .poll_func = p_poll_func,                                                             \
-    .func = p_func,                                                                       \
-    .period = p_period,                                                                   \
-    .last_run_time = 0,                                                                   \
-    .runtime_current = 0,                                                                 \
-    .runtime_min = UINT32_MAX,                                                            \
-    .runtime_avg = 0,                                                                     \
-    .runtime_worst = 0,                                                                   \
-    .runtime_max = 0,                                                                     \
-    .runtime_avg_sum = 0,                                                                 \
+#define CREATE_TASK(p_name, p_subname, p_stack, p_mask, p_priority, p_period, p_func) \
+  {                                                                                   \
+    .name = p_name,                                                                   \
+    .subname = p_subname,                                                             \
+    .mask = p_mask,                                                                   \
+    .priority = p_priority,                                                           \
+    .func = p_func,                                                                   \
+    .stack = p_stack,                                                                 \
+    .sp = NULL,                                                                       \
+    .completed = true,                                                                \
+    .period = p_period,                                                               \
+    .last_run_time = 0,                                                               \
+    .runtime_current = 0,                                                             \
+    .runtime_min = UINT32_MAX,                                                        \
+    .runtime_avg = 0,                                                                 \
+    .runtime_worst = 0,                                                               \
+    .runtime_max = 0,                                                                 \
+    .runtime_avg_sum = 0,                                                             \
   }
 
 void scheduler_init();
 void scheduler_update();
 
 cbor_result_t cbor_encode_task_stats(cbor_value_t *enc);
+
+void task_yield();

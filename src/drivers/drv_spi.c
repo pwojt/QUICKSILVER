@@ -9,6 +9,7 @@
 #include "drv_dma.h"
 #include "drv_interrupt.h"
 #include "drv_time.h"
+#include "scheduler.h"
 
 #define GPIO_AF_SPI1 GPIO_AF5_SPI1
 #define GPIO_AF_SPI2 GPIO_AF5_SPI2
@@ -625,6 +626,7 @@ void spi_txn_continue(spi_bus_device_t *bus) {
 void spi_txn_wait(spi_bus_device_t *bus) {
   while (!spi_txn_ready(bus)) {
     spi_txn_continue(bus);
+    task_yield();
   }
 }
 
@@ -683,6 +685,8 @@ static void handle_dma_rx_isr(spi_ports_t port) {
   if (bus->auto_continue) {
     spi_txn_continue(bus);
   }
+
+  task_yield();
 }
 
 #define SPI_PORT(channel, sck_pin, miso_pin, mosi_pin) \
