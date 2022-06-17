@@ -3,17 +3,26 @@
 #include <stdlib.h>
 
 #include "drv_interrupt.h"
+#include "failloop.h"
 
 void *memory_alloc(size_t size) {
   ATOMIC_BLOCK(MAX_PRIORITY) {
-    return malloc(size);
+    void *ptr = malloc(size);
+    if (ptr == NULL) {
+      failloop(FAILLOOP_HEAP);
+    }
+    return ptr;
   }
   return NULL;
 }
 
 void *memory_realloc(void *ptr, size_t size) {
   ATOMIC_BLOCK(MAX_PRIORITY) {
-    return realloc(ptr, size);
+    ptr = realloc(ptr, size);
+    if (ptr == NULL) {
+      failloop(FAILLOOP_HEAP);
+    }
+    return ptr;
   }
   return NULL;
 }

@@ -10,8 +10,10 @@
 
 const char *failloop_string(failloop_t val) {
   switch (val) {
-  case FAILLOOP_LOW_BATTERY:
-    return "low battery at powerup - unused";
+  case FAILLOOP_TASK:
+    return "task unexpectedly stopped";
+  case FAILLOOP_HEAP:
+    return "heap allocation failed";
   case FAILLOOP_RADIO:
     return "radio chip not found";
   case FAILLOOP_GYRO:
