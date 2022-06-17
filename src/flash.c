@@ -1,5 +1,6 @@
 #include "flash.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "drv_fmc.h"
@@ -34,16 +35,14 @@ void flash_save() {
 
   fmc_write(0, FMC_HEADER);
 
+  uint8_t *buffer = malloc(PROFILE_STORAGE_SIZE);
+
   {
-    uint8_t buffer[FLASH_STORAGE_SIZE];
-
     memcpy(buffer, (uint8_t *)&flash_storage, sizeof(flash_storage_t));
-
     fmc_write_buf(FLASH_STORAGE_OFFSET, buffer, FLASH_STORAGE_SIZE);
   }
 
   {
-    uint8_t buffer[BIND_STORAGE_SIZE];
     memset(buffer, 0, BIND_STORAGE_SIZE);
 
     if (bind_storage.bind_saved == 0) {
@@ -57,8 +56,6 @@ void flash_save() {
   }
 
   {
-    uint8_t buffer[PROFILE_STORAGE_SIZE];
-
     cbor_value_t enc;
     cbor_encoder_init(&enc, buffer, PROFILE_STORAGE_SIZE);
 
@@ -72,8 +69,6 @@ void flash_save() {
   }
 
   {
-    uint8_t buffer[VTX_STORAGE_SIZE];
-
     cbor_value_t enc;
     cbor_encoder_init(&enc, buffer, VTX_STORAGE_SIZE);
 
@@ -85,6 +80,8 @@ void flash_save() {
 
     fmc_write_buf(VTX_STORAGE_OFFSET, buffer, VTX_STORAGE_SIZE);
   }
+
+  free(buffer);
 
   fmc_write(FMC_END_OFFSET, FMC_HEADER);
   fmc_lock();
@@ -106,16 +103,14 @@ void flash_load() {
     return;
   }
 
-  {
-    uint8_t buffer[FLASH_STORAGE_SIZE];
+  uint8_t *buffer = malloc(PROFILE_STORAGE_SIZE);
 
+  {
     fmc_read_buf(FLASH_STORAGE_OFFSET, buffer, FLASH_STORAGE_SIZE);
     memcpy((uint8_t *)&flash_storage, buffer, sizeof(flash_storage_t));
   }
 
   {
-    uint8_t buffer[BIND_STORAGE_SIZE];
-
     fmc_read_buf(BIND_STORAGE_OFFSET, buffer, BIND_STORAGE_SIZE);
     memcpy((uint8_t *)&bind_storage, buffer, sizeof(rx_bind_storage_t));
 
@@ -126,8 +121,6 @@ void flash_load() {
   }
 
   {
-    uint8_t buffer[PROFILE_STORAGE_SIZE];
-
     fmc_read_buf(PROFILE_STORAGE_OFFSET, buffer, PROFILE_STORAGE_SIZE);
 
     cbor_value_t dec;
@@ -141,8 +134,6 @@ void flash_load() {
   }
 
   {
-    uint8_t buffer[VTX_STORAGE_SIZE];
-
     fmc_read_buf(VTX_STORAGE_OFFSET, buffer, VTX_STORAGE_SIZE);
 
     cbor_value_t dec;
@@ -154,4 +145,6 @@ void flash_load() {
       failloop(FAILLOOP_FAULT);
     }
   }
+
+  free(buffer);
 }
