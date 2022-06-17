@@ -31,61 +31,51 @@ static uint32_t lastlooptime;
 
 static FAST_RAM task_t *task_queue[TASK_MAX];
 static volatile uint8_t task_index = TASK_MAX;
+static volatile uint8_t task_mask = 0;
+
+static volatile uint32_t start_cycles = 0;
 static volatile bool scheduler_active = false;
 
 #define current_task task_queue[task_index]
-
-static volatile uint8_t task_mask = 0;
-static volatile uint32_t start_cycles = 0;
 
 static inline uint32_t scheduler_cycles() {
   return DWT->CYCCNT;
 }
 
-static inline void task_save_context() {
-  uint32_t scratch;
-  asm volatile("MRS %0, psp\n"
-               "TST lr, #0x10\n"
-               "IT EQ\n"
-               "VSTMDBEQ %0!, {s16-s31}\n"
-               "STMDB %0!, {r4-r11, lr}\n"
-               "MSR psp, %0\n"
-               : "=r"(scratch));
+static inline void scheduler_save_context() {
+  asm volatile(
+      "TST lr, #4\n"
+      "ITE EQ\n"
+      "MRSEQ r1, msp \n"
+      "MRSNE r1, psp \n"
+      "TST lr, #0x10\n"
+      "IT EQ\n"
+      "VSTMDBEQ r1!, {s16-s31}\n"
+      "STMDB r1!, {r4-r11, lr}\n"
+      "TST lr, #4\n"
+      "ITE EQ\n"
+      "MSREQ msp, r1 \n"
+      "MSRNE psp, r1 \n");
 }
 
 static inline void task_load_context() {
-  uint32_t scratch;
-  asm volatile("MRS %0, psp\n"
-               "LDMFD %0!, {r4-r11, lr}\n"
+  asm volatile("MRS r1, psp\n"
+               "LDMFD r1!, {r4-r11, lr}\n"
                "TST lr, #0x10\n"
                "IT EQ\n"
-               "VLDMIAEQ %0!, {S16-S31}\n"
-               "MSR psp, %0\n"
-               "BX lr\n"
-               : "=r"(scratch));
-}
-
-static inline void kernel_save_context() {
-  uint32_t scratch;
-  asm volatile("MRS %0, msp\n"
-               "TST lr, #0x10\n"
-               "IT EQ\n"
-               "VSTMDBEQ %0!, {s16-s31}\n"
-               "STMDB %0!, {r4-r11, lr}\n"
-               "MSR msp, %0\n"
-               : "=r"(scratch));
+               "VLDMIAEQ r1!, {S16-S31}\n"
+               "MSR psp, r1\n"
+               "BX lr\n");
 }
 
 static inline void kernel_load_context() {
-  uint32_t scratch;
-  asm volatile("MRS %0, msp\n"
-               "LDMFD %0!, {r4-r11, lr}\n"
+  asm volatile("MRS r1, msp\n"
+               "LDMFD r1!, {r4-r11, lr}\n"
                "TST lr, #0x10\n"
                "IT EQ\n"
-               "VLDMIAEQ %0!, {S16-S31}\n"
-               "MSR msp, %0\n"
-               "BX lr\n"
-               : "=r"(scratch));
+               "VLDMIAEQ r1!, {S16-S31}\n"
+               "MSR msp, r1\n"
+               "BX lr\n");
 }
 
 void task_return_function();
@@ -209,7 +199,7 @@ static inline bool select_task() {
   return false;
 }
 
-void task_yield() {
+__attribute__((noinline)) void task_yield() {
   if (!scheduler_active) {
     return;
   }
@@ -221,20 +211,16 @@ void task_yield() {
   }
 }
 
-__attribute__((isr)) void SVC_Handler() {
-  SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
-}
+__attribute__((always_inline)) static inline void scheduler_run_new_task() {
+  scheduler_save_context();
 
-__attribute__((isr, naked)) void PendSV_Handler() {
   if (task_index < TASK_MAX) {
-    task_save_context();
     if (current_task->completed) {
       task_reset(current_task);
     } else {
       current_task->sp = (void *)__get_PSP();
     }
   } else {
-    kernel_save_context();
     task_index = TASK_MAX - 1;
   }
 
@@ -248,6 +234,14 @@ __attribute__((isr, naked)) void PendSV_Handler() {
     task_index = TASK_MAX;
     kernel_load_context();
   }
+}
+
+__attribute__((isr, naked)) void SVC_Handler() {
+  scheduler_run_new_task();
+}
+
+__attribute__((isr, naked)) void PendSV_Handler() {
+  scheduler_run_new_task();
 }
 
 void looptime_update() {
