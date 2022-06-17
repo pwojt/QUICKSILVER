@@ -1,5 +1,6 @@
 #include "drv_time.h"
 
+#include "drv_interrupt.h"
 #include "project.h"
 
 #if defined(STM32F7) || defined(STM32H7)
@@ -42,10 +43,12 @@ void time_init() {
 }
 
 void SysTick_Handler() {
-  systick_count++;
-  systick_val = SysTick->VAL;
-  systick_pending = 0;
-  (void)(SysTick->CTRL);
+  ATOMIC_BLOCK(MAX_PRIORITY) {
+    systick_count++;
+    systick_val = SysTick->VAL;
+    systick_pending = 0;
+    (void)(SysTick->CTRL);
+  }
 
 #ifdef USE_HAL_DRIVER
   // used by the HAL for some timekeeping and timeouts, should always be 1ms
@@ -54,15 +57,22 @@ void SysTick_Handler() {
 }
 
 uint32_t time_micros_isr() {
-  register uint32_t ticks = SysTick->VAL;
+  register uint32_t count = 0;
+  register uint32_t ticks = 0;
+  register uint32_t pending = 0;
 
-  if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
-    systick_pending = 1;
+  ATOMIC_BLOCK(MAX_PRIORITY) {
     ticks = SysTick->VAL;
-  }
 
-  register uint32_t count = systick_count;
-  register uint32_t pending = systick_pending;
+    if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {
+      systick_pending = 1;
+
+      ticks = SysTick->VAL;
+    }
+
+    count = systick_count;
+    pending = systick_pending;
+  }
 
   return ((count + pending) * 1000) + (TICKS_PER_US * 1000 - ticks) / TICKS_PER_US;
 }
