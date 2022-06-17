@@ -51,6 +51,8 @@ void task_main() {
   buzzer_update();
 }
 
+extern void idle_task();
+
 FAST_RAM uint8_t task_stacks[TASK_MAX][TASK_STACK_SIZE];
 
 FAST_RAM task_t tasks[TASK_MAX] = {
@@ -65,4 +67,5 @@ FAST_RAM task_t tasks[TASK_MAX] = {
     [TASK_OSD] = CREATE_TASK("OSD", NULL, task_stacks[TASK_OSD], TASK_MASK_ALWAYS, TASK_PRIORITY_MEDIUM, 0, osd_display),
 #endif
     [TASK_VTX] = CREATE_TASK("VTX", NULL, task_stacks[TASK_VTX], TASK_MASK_ON_GROUND, TASK_PRIORITY_LOW, 0, vtx_update),
+    [TASK_IDLE] = CREATE_TASK("IDLE", NULL, task_stacks[TASK_IDLE], TASK_MASK_ALWAYS, TASK_PRIORITY_LOW, 0, idle_task),
 };

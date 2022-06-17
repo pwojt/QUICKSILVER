@@ -188,6 +188,16 @@ static inline bool should_run_task(const uint32_t start_cycles, uint8_t task_mas
   return true;
 }
 
+void idle_task() {
+  uint8_t index = 0;
+  while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
+    if (!task_queue[index]->completed) {
+      task_yield();
+    }
+    index = (index + 1) % TASK_MAX;
+  }
+}
+
 static inline bool select_task() {
   while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
     task_index = (task_index + 1) % TASK_MAX;

@@ -16,6 +16,7 @@ typedef enum {
   TASK_OSD,
 #endif
   TASK_VTX,
+  TASK_IDLE,
 
   TASK_MAX
 
