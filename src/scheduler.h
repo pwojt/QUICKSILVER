@@ -79,6 +79,9 @@ typedef struct {
   uint32_t last_run_time;
   uint32_t period;
 
+  uint32_t execution_time;
+  uint32_t exection_start_time;
+
   uint32_t runtime_current;
   uint32_t runtime_min;
   uint32_t runtime_avg;
@@ -98,8 +101,10 @@ typedef struct {
     .stack = p_stack,                                                                 \
     .sp = NULL,                                                                       \
     .completed = true,                                                                \
-    .period = p_period,                                                               \
     .last_run_time = 0,                                                               \
+    .period = p_period,                                                               \
+    .execution_time = 0,                                                              \
+    .exection_start_time = 0,                                                         \
     .runtime_current = 0,                                                             \
     .runtime_min = UINT32_MAX,                                                        \
     .runtime_avg = 0,                                                                 \

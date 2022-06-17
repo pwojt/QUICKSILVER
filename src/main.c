@@ -81,8 +81,6 @@ __attribute__((__used__)) void memory_section_init() {
 }
 
 __attribute__((__used__)) int main() {
-  scheduler_init();
-
   // init timer so we can use delays etc
   time_init();
 
@@ -154,7 +152,7 @@ __attribute__((__used__)) int main() {
 
   osd_clear();
 
-  reset_looptime();
+  scheduler_init();
 
   while (1) {
     scheduler_update();

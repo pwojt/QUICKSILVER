@@ -17,7 +17,7 @@
 //#define PSP_RETURN 0xFFFFFFFD
 
 #define TASK_AVERAGE_SAMPLES 32
-#define TASK_RUNTIME_REDUCTION 0.75
+#define TASK_RUNTIME_REDUCTION(val) ((val * 2) / 3)
 #define TASK_RUNTIME_MARGIN 1.25
 #define TASK_RUNTIME_BUFFER 10
 
@@ -78,7 +78,38 @@ static inline void kernel_load_context() {
                "BX lr\n");
 }
 
-void task_return_function();
+void task_return_function() {
+  failloop(FAILLOOP_FAULT);
+}
+
+void task_wrapper_function(task_t *task) {
+  while (true) {
+    task->func();
+
+    task->execution_time += scheduler_cycles() - task->exection_start_time;
+    task->runtime_current = task->execution_time;
+
+    if (task->runtime_current < task->runtime_min) {
+      task->runtime_min = task->runtime_current;
+    }
+
+    task->runtime_avg_sum -= task->runtime_avg;
+    task->runtime_avg_sum += task->runtime_current;
+    task->runtime_avg = task->runtime_avg_sum / TASK_AVERAGE_SAMPLES;
+
+    if (task->runtime_current > task->runtime_max) {
+      task->runtime_max = task->runtime_current;
+    }
+
+    if (task->runtime_worst < (task->runtime_avg * TASK_RUNTIME_MARGIN)) {
+      task->runtime_worst = task->runtime_avg * TASK_RUNTIME_MARGIN;
+    }
+
+    task->completed = true;
+
+    task_yield();
+  }
+}
 
 static inline void task_reset(task_t *task) {
   void *stack_addr = task->stack + TASK_STACK_SIZE;
@@ -90,7 +121,8 @@ static inline void task_reset(task_t *task) {
   }
 
   task_hw_stack_t *hw_stack = (task_hw_stack_t *)(stack_addr - sizeof(task_hw_stack_t));
-  hw_stack->pc = (uint32_t)task->func;
+  hw_stack->r0 = (uint32_t)task;
+  hw_stack->pc = (uint32_t)task_wrapper_function;
   hw_stack->lr = (uint32_t)task_return_function;
   hw_stack->psr = 0x21000000;
 
@@ -98,37 +130,6 @@ static inline void task_reset(task_t *task) {
   sw_stack->lr = PSP_RETURN;
 
   task->sp = stack_addr - stack_size;
-}
-
-void task_return_function() {
-  task_t *task = current_task;
-
-  const int32_t time_taken = scheduler_cycles() - task->last_run_time;
-
-  task->runtime_current = time_taken;
-
-  if (time_taken < task->runtime_min) {
-    task->runtime_min = time_taken;
-  }
-
-  task->runtime_avg_sum -= task->runtime_avg;
-  task->runtime_avg_sum += time_taken;
-  task->runtime_avg = task->runtime_avg_sum / TASK_AVERAGE_SAMPLES;
-
-  if (time_taken > task->runtime_max) {
-    task->runtime_max = time_taken;
-  }
-
-  if (task->runtime_worst < (task->runtime_avg * TASK_RUNTIME_MARGIN)) {
-    task->runtime_worst = task->runtime_avg * TASK_RUNTIME_MARGIN;
-  }
-
-  task->completed = true;
-
-  task_yield();
-
-  while (true)
-    __WFI();
 }
 
 static uint32_t task_queue_size = 0;
@@ -179,9 +180,9 @@ static inline bool should_run_task(const uint32_t start_cycles, uint8_t task_mas
   }
 
   const int32_t time_left = US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER) - (scheduler_cycles() - start_cycles);
-  if (task->priority != TASK_PRIORITY_REALTIME && task->runtime_worst > time_left) {
+  if (task->priority != TASK_PRIORITY_REALTIME && (int32_t)(task->runtime_worst - task->execution_time) > time_left) {
     // we dont have any time left this loop and task is not realtime
-    task->runtime_worst *= TASK_RUNTIME_REDUCTION;
+    task->runtime_worst = TASK_RUNTIME_REDUCTION(task->runtime_worst);
     return false;
   }
 
@@ -190,7 +191,7 @@ static inline bool should_run_task(const uint32_t start_cycles, uint8_t task_mas
 
 void idle_task() {
   uint8_t index = 0;
-  while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
+  while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER - 5)) {
     if (!task_queue[index]->completed) {
       task_yield();
     }
@@ -225,19 +226,20 @@ __attribute__((always_inline)) static inline void scheduler_run_new_task() {
   scheduler_save_context();
 
   if (task_index < TASK_MAX) {
-    if (current_task->completed) {
-      task_reset(current_task);
-    } else {
-      current_task->sp = (void *)__get_PSP();
-    }
+    current_task->execution_time += scheduler_cycles() - current_task->exection_start_time;
+    current_task->sp = (void *)__get_PSP();
   } else {
     task_index = TASK_MAX - 1;
   }
 
   if (select_task()) {
-    current_task->last_run_time = scheduler_cycles();
-    current_task->completed = false;
+    if (current_task->completed) {
+      current_task->last_run_time = scheduler_cycles();
+      current_task->execution_time = 0;
+      current_task->completed = false;
+    }
 
+    current_task->exection_start_time = scheduler_cycles();
     __set_PSP((uint32_t)current_task->sp);
     task_load_context();
   } else {
@@ -302,14 +304,14 @@ void scheduler_init() {
   state.looptime = LOOPTIME * 1e-6;
   state.looptime_autodetect = LOOPTIME;
 
-  lastlooptime = time_micros();
-
   for (uint32_t i = 0; i < TASK_MAX; i++) {
     task_queue_push(&tasks[i]);
   }
 
   NVIC_SetPriority(SVCall_IRQn, 0);
   NVIC_SetPriority(PendSV_IRQn, 0xFF);
+
+  lastlooptime = time_micros();
 }
 
 void scheduler_update() {
