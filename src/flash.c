@@ -1,12 +1,12 @@
 #include "flash.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "drv_fmc.h"
 #include "drv_serial.h"
 #include "failloop.h"
 #include "io/vtx.h"
+#include "memory.h"
 #include "profile.h"
 #include "project.h"
 #include "util/cbor_helper.h"
@@ -35,7 +35,7 @@ void flash_save() {
 
   fmc_write(0, FMC_HEADER);
 
-  uint8_t *buffer = malloc(PROFILE_STORAGE_SIZE);
+  uint8_t *buffer = memory_alloc(PROFILE_STORAGE_SIZE);
 
   {
     memcpy(buffer, (uint8_t *)&flash_storage, sizeof(flash_storage_t));
@@ -81,7 +81,7 @@ void flash_save() {
     fmc_write_buf(VTX_STORAGE_OFFSET, buffer, VTX_STORAGE_SIZE);
   }
 
-  free(buffer);
+  memory_free(buffer);
 
   fmc_write(FMC_END_OFFSET, FMC_HEADER);
   fmc_lock();
@@ -103,7 +103,7 @@ void flash_load() {
     return;
   }
 
-  uint8_t *buffer = malloc(PROFILE_STORAGE_SIZE);
+  uint8_t *buffer = memory_alloc(PROFILE_STORAGE_SIZE);
 
   {
     fmc_read_buf(FLASH_STORAGE_OFFSET, buffer, FLASH_STORAGE_SIZE);
@@ -146,5 +146,5 @@ void flash_load() {
     }
   }
 
-  free(buffer);
+  memory_free(buffer);
 }
