@@ -10,16 +10,18 @@
 #include "tasks.h"
 #include "util/cbor_helper.h"
 
-#define MSP_RETURN 0xFFFFFFE9
-#define PSP_RETURN 0xFFFFFFED
+#define MSP_RETURN_FLOAT 0xFFFFFFE9
+#define MSP_RETURN_NO_FLOAT 0xFFFFFFF9
 
-//#define MSP_RETURN 0xFFFFFFF9
-//#define PSP_RETURN 0xFFFFFFFD
+#define PSP_RETURN_FLOAT 0xFFFFFFED
+#define PSP_RETURN_NO_FLOAT 0xFFFFFFFD
 
 #define TASK_AVERAGE_SAMPLES 32
 #define TASK_RUNTIME_REDUCTION(val) ((val * 2) / 3)
 #define TASK_RUNTIME_MARGIN 1.25
 #define TASK_RUNTIME_BUFFER 10
+
+#define STACK_CANARY 0xDEADBEEF
 
 #define US_TO_CYCLES(us) ((us)*TICKS_PER_US)
 #define CYCLES_TO_US(cycles) ((cycles) / TICKS_PER_US)
@@ -127,7 +129,9 @@ static inline void task_reset(task_t *task) {
   hw_stack->psr = 0x21000000;
 
   task_sw_stack_t *sw_stack = (task_sw_stack_t *)(stack_addr - sizeof(task_hw_stack_t) - sizeof(task_sw_stack_t));
-  sw_stack->lr = PSP_RETURN;
+  sw_stack->lr = PSP_RETURN_NO_FLOAT;
+
+  *((uint32_t *)task->stack) = STACK_CANARY;
 
   task->sp = stack_addr - stack_size;
 }
@@ -228,6 +232,10 @@ __attribute__((always_inline)) static inline void scheduler_run_new_task() {
   if (task_index < TASK_MAX) {
     current_task->execution_time += scheduler_cycles() - current_task->exection_start_time;
     current_task->sp = (void *)__get_PSP();
+
+    if (*((uint32_t *)current_task->stack) != STACK_CANARY) {
+      __BKPT(0);
+    }
   } else {
     task_index = TASK_MAX - 1;
   }

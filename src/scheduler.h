@@ -23,7 +23,7 @@ typedef void (*task_function_t)();
 typedef bool (*task_poll_function_t)();
 
 // This defines the stack that is saved  by the hardware
-typedef struct {
+typedef struct __attribute__((__packed__)) {
   uint32_t r0;
   uint32_t r1;
   uint32_t r2;
@@ -35,7 +35,7 @@ typedef struct {
 } task_hw_stack_t;
 
 // This defines the stack that must be saved by the software
-typedef struct {
+typedef struct __attribute__((__packed__)) {
   uint32_t r4;
   uint32_t r5;
   uint32_t r6;
@@ -45,22 +45,6 @@ typedef struct {
   uint32_t r10;
   uint32_t r11;
   uint32_t lr;
-  uint32_t s16;
-  uint32_t s17;
-  uint32_t s18;
-  uint32_t s19;
-  uint32_t s20;
-  uint32_t s21;
-  uint32_t s22;
-  uint32_t s23;
-  uint32_t s24;
-  uint32_t s25;
-  uint32_t s26;
-  uint32_t s27;
-  uint32_t s28;
-  uint32_t s29;
-  uint32_t s30;
-  uint32_t s31;
 } task_sw_stack_t;
 
 typedef struct {

@@ -53,7 +53,7 @@ void task_main() {
 
 extern void idle_task();
 
-FAST_RAM uint8_t task_stacks[TASK_MAX][TASK_STACK_SIZE];
+FAST_RAM uint32_t task_stacks[TASK_MAX][TASK_STACK_SIZE / sizeof(uint32_t)];
 
 FAST_RAM task_t tasks[TASK_MAX] = {
     [TASK_MAIN] = CREATE_TASK("MAIN", NULL, task_stacks[TASK_MAIN], TASK_MASK_ALWAYS, TASK_PRIORITY_REALTIME, 0, task_main),
