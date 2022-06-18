@@ -8,6 +8,9 @@
 
 #define M_PI_F 3.14159265358979323846f
 
+#define _MACRO_STR(arg) #arg
+#define MACRO_STR(name) _MACRO_STR(name)
+
 #define constrain(val, min, max) ((val) < (min) ? (min) : ((val) > (max) ? (max) : (val)))
 #define min(a, b) \
   ({ __typeof__ (a) _a = (a); \

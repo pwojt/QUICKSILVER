@@ -488,9 +488,6 @@ const profile_t default_profile = {
     },
 };
 
-#define _MACRO_STR(arg) #arg
-#define MACRO_STR(name) _MACRO_STR(name)
-
 target_info_t target_info = {
     .target_name = MACRO_STR(TARGET),
     .git_version = MACRO_STR(GIT_VERSION),
