@@ -81,6 +81,10 @@ __attribute__((__used__)) void memory_section_init() {
 }
 
 __attribute__((__used__)) int main() {
+  // attempt 8k looptime for f405 or 4k looptime for f411
+  state.looptime = LOOPTIME * 1e-6;
+  state.looptime_autodetect = LOOPTIME;
+
   // init timer so we can use delays etc
   time_init();
 
@@ -152,9 +156,5 @@ __attribute__((__used__)) int main() {
 
   osd_clear();
 
-  scheduler_init();
-
-  while (1) {
-    scheduler_update();
-  }
+  scheduler_start();
 }

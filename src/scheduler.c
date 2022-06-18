@@ -32,53 +32,13 @@ uint8_t blown_loop_counter;
 static uint32_t lastlooptime;
 
 static FAST_RAM task_t *task_queue[TASK_MAX];
-static volatile uint8_t task_index = TASK_MAX;
+static volatile uint32_t task_index = TASK_IDLE;
 static volatile uint8_t task_mask = 0;
 
 static volatile uint32_t start_cycles = 0;
-static volatile bool scheduler_active = false;
+volatile bool scheduler_active = false;
 
 #define current_task task_queue[task_index]
-
-static inline uint32_t scheduler_cycles() {
-  return DWT->CYCCNT;
-}
-
-static inline void scheduler_save_context() {
-  asm volatile(
-      "TST lr, #4\n"
-      "ITE EQ\n"
-      "MRSEQ r1, msp \n"
-      "MRSNE r1, psp \n"
-      "TST lr, #0x10\n"
-      "IT EQ\n"
-      "VSTMDBEQ r1!, {s16-s31}\n"
-      "STMDB r1!, {r4-r11, lr}\n"
-      "TST lr, #4\n"
-      "ITE EQ\n"
-      "MSREQ msp, r1 \n"
-      "MSRNE psp, r1 \n");
-}
-
-static inline void task_load_context() {
-  asm volatile("MRS r1, psp\n"
-               "LDMFD r1!, {r4-r11, lr}\n"
-               "TST lr, #0x10\n"
-               "IT EQ\n"
-               "VLDMIAEQ r1!, {S16-S31}\n"
-               "MSR psp, r1\n"
-               "BX lr\n");
-}
-
-static inline void kernel_load_context() {
-  asm volatile("MRS r1, msp\n"
-               "LDMFD r1!, {r4-r11, lr}\n"
-               "TST lr, #0x10\n"
-               "IT EQ\n"
-               "VLDMIAEQ r1!, {S16-S31}\n"
-               "MSR msp, r1\n"
-               "BX lr\n");
-}
 
 void task_return_function() {
   failloop(FAILLOOP_FAULT);
@@ -88,7 +48,7 @@ void task_wrapper_function(task_t *task) {
   while (true) {
     task->func();
 
-    task->execution_time += scheduler_cycles() - task->exection_start_time;
+    task->execution_time += time_cycles() - task->exection_start_time;
     task->runtime_current = task->execution_time;
 
     if (task->runtime_current < task->runtime_min) {
@@ -133,7 +93,7 @@ static inline void task_reset(task_t *task) {
 
   *((uint32_t *)task->stack) = STACK_CANARY;
 
-  task->sp = stack_addr - stack_size;
+  task->sp = (uint32_t)stack_addr - stack_size;
 }
 
 static uint32_t task_queue_size = 0;
@@ -178,12 +138,12 @@ static inline bool should_run_task(const uint32_t start_cycles, uint8_t task_mas
     return false;
   }
 
-  if (task->period != 0 && (scheduler_cycles() - task->last_run_time) < US_TO_CYCLES(task->period)) {
+  if (task->period != 0 && (time_cycles() - task->last_run_time) < US_TO_CYCLES(task->period)) {
     // task has a period, but its not up yet
     return false;
   }
 
-  const int32_t time_left = US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER) - (scheduler_cycles() - start_cycles);
+  const int32_t time_left = US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER) - (time_cycles() - start_cycles);
   if (task->priority != TASK_PRIORITY_REALTIME && (int32_t)(task->runtime_worst - task->execution_time) > time_left) {
     // we dont have any time left this loop and task is not realtime
     task->runtime_worst = TASK_RUNTIME_REDUCTION(task->runtime_worst);
@@ -193,18 +153,8 @@ static inline bool should_run_task(const uint32_t start_cycles, uint8_t task_mas
   return true;
 }
 
-void idle_task() {
-  uint8_t index = 0;
-  while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER - 5)) {
-    if (!task_queue[index]->completed) {
-      task_yield();
-    }
-    index = (index + 1) % TASK_MAX;
-  }
-}
-
-static inline bool select_task() {
-  while ((scheduler_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
+static bool select_task() {
+  while ((time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
     task_index = (task_index + 1) % TASK_MAX;
 
     if (should_run_task(start_cycles, task_mask, current_task)) {
@@ -214,50 +164,74 @@ static inline bool select_task() {
   return false;
 }
 
-__attribute__((noinline)) void task_yield() {
-  if (!scheduler_active) {
-    return;
+__attribute__((noinline, used)) uint32_t run_sched(uint32_t sp) {
+  if (sp == 0) {
+    // intial context switch, task_idle is pre-selected
+    current_task->exection_start_time = time_cycles();
+    return current_task->sp;
   }
 
-  if ((SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk)) {
-    SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
-  } else {
-    asm volatile("SVC 0");
+  current_task->execution_time += time_cycles() - current_task->exection_start_time;
+  current_task->sp = sp;
+
+  if (*((uint32_t *)current_task->stack) != STACK_CANARY) {
+    __BKPT(0);
   }
+
+  if (!select_task()) {
+    task_index = TASK_IDLE;
+  }
+
+  if (current_task->completed) {
+    current_task->last_run_time = time_cycles();
+    current_task->execution_time = 0;
+    current_task->completed = false;
+  }
+
+  current_task->exection_start_time = time_cycles();
+  return current_task->sp;
 }
 
-__attribute__((always_inline)) static inline void scheduler_run_new_task() {
-  scheduler_save_context();
+static inline __attribute__((always_inline)) void scheduler_run_new_task() {
+  asm volatile(
+      ".thumb_func\n"
+      ".syntax unified\n"
 
-  if (task_index < TASK_MAX) {
-    current_task->execution_time += scheduler_cycles() - current_task->exection_start_time;
-    current_task->sp = (void *)__get_PSP();
+      "mov r0, #0\n"
 
-    if (*((uint32_t *)current_task->stack) != STACK_CANARY) {
-      __BKPT(0);
-    }
-  } else {
-    task_index = TASK_MAX - 1;
-  }
+      "tst lr, #4\n"
+      "it eq\n"
+      "beq schedule_task\n"
 
-  if (select_task()) {
-    if (current_task->completed) {
-      current_task->last_run_time = scheduler_cycles();
-      current_task->execution_time = 0;
-      current_task->completed = false;
-    }
+      "mrs r0, psp\n"
+      "tst lr, #0x10\n"
+      "it eq\n"
+      "vstmdbeq r0!, {s16-s31}\n"
+      "stmdb r0!, {r4-r11, lr}\n"
+      "msr psp, r0\n"
 
-    current_task->exection_start_time = scheduler_cycles();
-    __set_PSP((uint32_t)current_task->sp);
-    task_load_context();
-  } else {
-    task_index = TASK_MAX;
-    kernel_load_context();
-  }
+      "schedule_task:\n"
+      "cpsid  i\n"
+      "bl run_sched\n" // returns sp in r0
+      "cpsie  i\n"
+
+      "ldmfd r0!, {r4-r11, lr}\n"
+      "tst lr, #0x10\n"
+      "it eq\n"
+      "vldmiaeq r0!, {s16-s31}\n"
+
+      "msr psp, r0\n"
+      "bx lr\n"
+
+      ".ltorg\n"
+      :
+      :
+      :);
 }
 
-__attribute__((isr, naked)) void SVC_Handler() {
-  scheduler_run_new_task();
+__attribute__((used)) void SVC_Handler() {
+  SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+  __ISB();
 }
 
 __attribute__((isr, naked)) void PendSV_Handler() {
@@ -307,11 +281,7 @@ void looptime_update() {
   }
 }
 
-void scheduler_init() {
-  // attempt 8k looptime for f405 or 4k looptime for f411
-  state.looptime = LOOPTIME * 1e-6;
-  state.looptime_autodetect = LOOPTIME;
-
+void scheduler_start() {
   for (uint32_t i = 0; i < TASK_MAX; i++) {
     task_queue_push(&tasks[i]);
   }
@@ -320,47 +290,58 @@ void scheduler_init() {
   NVIC_SetPriority(PendSV_IRQn, 0xFF);
 
   lastlooptime = time_micros();
-}
-
-void scheduler_update() {
-  start_cycles = scheduler_cycles();
-
-  const uint32_t time = time_micros();
-  state.looptime_us = ((uint32_t)(time - lastlooptime));
-  lastlooptime = time;
-
-  if (state.looptime_us <= 0) {
-    state.looptime_us = 1;
-  }
-
-  // max loop 20ms
-  if (state.looptime_us > 20000) {
-    failloop(FAILLOOP_LOOPTIME);
-  }
-
-  looptime_update();
-
-  state.looptime = state.looptime_us * 1e-6f;
-
-  state.uptime += state.looptime;
-  if (flags.arm_state) {
-    state.armtime += state.looptime;
-  }
-
-  task_mask = 0;
-
-  if (flags.on_ground && !flags.arm_state) {
-    task_mask |= TASK_MASK_ON_GROUND;
-  }
-  if (flags.in_air || flags.arm_state) {
-    task_mask |= TASK_MASK_IN_AIR;
-  }
-
   scheduler_active = true;
   task_yield();
+}
 
-  state.cpu_load = (time_micros() - lastlooptime);
-  state.loop_counter++;
+void idle_task() {
+  while (true) {
+    start_cycles = time_cycles();
+
+    const uint32_t time = time_micros();
+    state.looptime_us = ((uint32_t)(time - lastlooptime));
+    lastlooptime = time;
+
+    if (state.looptime_us <= 0) {
+      state.looptime_us = 1;
+    }
+
+    // max loop 20ms
+    if (state.looptime_us > 20000) {
+      failloop(FAILLOOP_LOOPTIME);
+    }
+
+    looptime_update();
+
+    state.looptime = state.looptime_us * 1e-6f;
+
+    state.uptime += state.looptime;
+    if (flags.arm_state) {
+      state.armtime += state.looptime;
+    }
+
+    task_mask = 0;
+
+    if (flags.on_ground && !flags.arm_state) {
+      task_mask |= TASK_MASK_ON_GROUND;
+    }
+    if (flags.in_air || flags.arm_state) {
+      task_mask |= TASK_MASK_IN_AIR;
+    }
+
+    scheduler_active = true;
+
+    uint8_t index = 0;
+    do {
+      if (!task_queue[index]->completed) {
+        task_yield();
+      }
+      index = (index + 1) % TASK_MAX;
+    } while ((time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER - 5));
+
+    state.cpu_load = (time_micros() - lastlooptime);
+    state.loop_counter++;
+  }
 }
 
 void reset_looptime() {

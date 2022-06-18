@@ -5,6 +5,8 @@
 
 #include <cbor.h>
 
+#include "project.h"
+
 typedef enum {
   TASK_PRIORITY_REALTIME,
   TASK_PRIORITY_HIGH,
@@ -57,7 +59,7 @@ typedef struct {
 
   task_function_t func;
   void *stack;
-  void *sp;
+  uint32_t sp;
   bool completed;
 
   uint32_t last_run_time;
@@ -83,7 +85,7 @@ typedef struct {
     .priority = p_priority,                                                           \
     .func = p_func,                                                                   \
     .stack = p_stack,                                                                 \
-    .sp = NULL,                                                                       \
+    .sp = 0,                                                                          \
     .completed = true,                                                                \
     .last_run_time = 0,                                                               \
     .period = p_period,                                                               \
@@ -97,9 +99,14 @@ typedef struct {
     .runtime_avg_sum = 0,                                                             \
   }
 
-void scheduler_init();
-void scheduler_update();
+void scheduler_start();
 
 cbor_result_t cbor_encode_task_stats(cbor_value_t *enc);
 
-void task_yield();
+static inline __attribute__((always_inline)) void task_yield() {
+  extern volatile bool scheduler_active;
+  if (scheduler_active) {
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    __ISB();
+  }
+}
