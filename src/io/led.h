@@ -7,7 +7,7 @@
 void led_init();
 void led_on(uint8_t val);
 void led_off(uint8_t val);
-void led_flash(uint32_t period, int duty);
+void led_flash(uint32_t period, uint8_t duty);
 
 void led_update();
 

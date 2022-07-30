@@ -55,8 +55,8 @@ void led_off(uint8_t val) {
   }
 }
 
-void led_flash(uint32_t period, int duty) {
-  if (time_micros() % period > (period * duty) >> 4) {
+void led_flash(uint32_t period, uint8_t duty) {
+  if (time_millis() % period > (period * duty) >> 4) {
     led_on(LEDALL);
   } else {
     led_off(LEDALL);
@@ -96,17 +96,17 @@ void led_update() {
 
   // led flash logic
   if (flags.lowbatt) {
-    led_flash(500000, 8);
+    led_flash(500, 8);
     return;
   }
 
   if (flags.rx_mode == RXMODE_BIND) { // bind mode
-    led_flash(100000, 12);
+    led_flash(100, 12);
     return;
   }
 
   if (flags.failsafe) {
-    led_flash(500000, 15);
+    led_flash(500, 15);
     return;
   }
 
@@ -117,7 +117,7 @@ void led_update() {
       ledcommand = 0;
       ledcommandtime = 0;
     }
-    led_flash(100000, 8);
+    led_flash(100, 8);
     return;
   }
 
