@@ -9,12 +9,12 @@
 #include "project.h"
 
 // DMA1 Stream0 SPI3_RX
-// DMA1 Stream1
-// DMA1 Stream2
+// DMA1 Stream1 
+// DMA1 Stream2 -> TIM3_CH4 (CH5) - B01 AF2 (betafpv 5A)
 // DMA1 Stream3 SPI2_RX
 // DMA1 Stream4 SPI2_TX
-// DMA1 Stream5
-// DMA1 Stream6
+// DMA1 Stream5 TIM2_CH1(CH3)
+// DMA1 Stream6 
 // DMA1 Stream7 SPI3_TX
 
 // DMA2 Stream0 SPI4_RX
@@ -37,7 +37,10 @@
   DMA_STREAM(2, 4, 1, SPI4_TX)  \
   DMA_STREAM(2, 6, 3, TIM1_CH1) \
   DMA_STREAM(2, 6, 6, TIM1_CH3) \
-  DMA_STREAM(2, 6, 4, TIM1_CH4)
+  DMA_STREAM(2, 6, 4, TIM1_CH4) \
+  DMA_STREAM(1, 3, 5, TIM2_CH1)
+  
+
 
 #ifdef STM32H7
 #define DMA_STREAM(_port, _chan, _stream, _dev)   \
@@ -307,7 +310,9 @@ void dma_clear_flag_tc(DMA_TypeDef *dma, uint32_t stream) {
 
 extern void dshot_dma_isr(dma_device_t dev);
 extern void spi_dma_isr(dma_device_t dev);
-
+#if defined(RGB_LED_DMA)
+  extern void rgb_dma_isr();
+#endif
 static void handle_dma_stream_isr(dma_device_t dev) {
   switch (dev) {
   case DMA_DEVICE_SPI1_RX:
@@ -325,6 +330,11 @@ static void handle_dma_stream_isr(dma_device_t dev) {
   case DMA_DEVICE_TIM1_CH4:
 #if defined(USE_DSHOT_DMA_DRIVER)
     dshot_dma_isr(dev);
+#endif
+    break;
+  case DMA_DEVICE_TIM2_CH1:
+#if defined(RGB_LED_DMA)
+    rgb_dma_isr();
 #endif
     break;
   case DMA_DEVICE_MAX:

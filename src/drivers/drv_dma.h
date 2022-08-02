@@ -18,6 +18,7 @@ typedef enum {
   DMA_DEVICE_TIM1_CH1,
   DMA_DEVICE_TIM1_CH3,
   DMA_DEVICE_TIM1_CH4,
+  DMA_DEVICE_TIM2_CH1,
 
   DMA_DEVICE_MAX,
 } dma_device_t;
