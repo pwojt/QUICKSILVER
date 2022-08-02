@@ -37,73 +37,10 @@ volatile uint16_t rgb_timer_buffer16[RGB_BUFFER_SIZE] = {0}; // DMA buffer: 16-b
 const dma_stream_def_t *rgb_dma = &dma_stream_defs[RGB_LED_DMA];
 
 
-void rgb_init() {
-
-  rgb_initIO();
-
-  rgb_initTIM();
-  
-  rgb_initNVIC();
-
-  rgb_initDMA();
-
-  for (int i = 0; i < RGB_LED_NUMBER; i++) {
-    rgb_led_value[i] = 0;
-  }
-  if (!rgb_dma_phase)
-    rgb_dma_phase = 3;
-}
-
-void rgb_dma_buffer_making() {
-  // generate rgb dma packet of pulse width timings for all LEDs
-  for(uint32_t n=0;n<RGB_LED_NUMBER;n++) {
-    // rgb_led_value contains a (32bit) int that contains the RGB values in G R B format already
-    // so i can just test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
-    for (size_t i = 0; i < RGB_BITS_LED; i++) {
-      if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
-        rgb_timer_buffer32[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
-      else
-        rgb_timer_buffer16[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
-    }
-  }
-}
-
-void rgb_dma_trigger() {
-  rgb_initDMA();
-  // Enable Transfer-Complete Interrupt
-  LL_DMA_EnableIT_TC(rgb_dma->port, rgb_dma->stream_index);
-  // Enable DMA 
-  LL_DMA_EnableStream(rgb_dma->port, rgb_dma->stream_index);
-  // Enable timer
-  LL_TIM_EnableDMAReq_CC1(RGB_TIMER);
-  LL_TIM_EnableCounter(RGB_TIMER);
-}
-
-void rgb_dma_start() {
-  if (rgb_dma_phase <= 1)
-    return;
-
-  if (rgb_dma_phase == 3) {
-    rgb_dma_buffer_making();
-    rgb_dma_phase = 2;
-    return;
-  }
-
-  rgb_dma_phase = 1;
-  rgb_dma_trigger();
-}
-
-void rgb_send(int data) {
-  if (!rgb_dma_phase)
-    rgb_dma_phase = 3;
-}
-
-void rgb_initIO(void)
+void rgb_init_io()
 {
   LL_GPIO_InitTypeDef GPIO_InitStructure;
 
-  // Enable Clock
-  LL_AHB1_GRP1_EnableClock(RGB_PIN_CLOCK);
   // Config pin for digital output
   GPIO_InitStructure.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStructure.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
@@ -111,15 +48,14 @@ void rgb_initIO(void)
   GPIO_InitStructure.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
 
   GPIO_InitStructure.Pin = RGB_PIN;
-  LL_GPIO_Init(RGB_PORT, &GPIO_InitStructure);
-  LL_GPIO_ResetOutputPin(RGB_PORT, RGB_PIN);
 
   // Bind IO pin to the alternate function
   gpio_pin_init_af(&GPIO_InitStructure, RGB_PIN, RGB_TIM_AF);
+  gpio_pin_reset(RGB_PIN);
 }
 
 
-void rgb_initTIM(void)
+void rgb_init_tim()
 {
   LL_TIM_InitTypeDef TIM_TimeBaseStructure;
   LL_TIM_OC_InitTypeDef TIM_OCInitStructure;
@@ -144,13 +80,11 @@ void rgb_initTIM(void)
 
   LL_TIM_OC_Init(RGB_TIMER, RGB_TIM_CHAN, &TIM_OCInitStructure);
   LL_TIM_OC_EnablePreload(RGB_TIMER, RGB_TIM_CHAN);
-
-  // Timer enable
   LL_TIM_EnableARRPreload(RGB_TIMER);
 }
 
 
-void rgb_initDMA(void)
+void rgb_init_dma()
 {
   LL_DMA_InitTypeDef DMA_InitStructure;
   LL_DMA_StructInit(&DMA_InitStructure);
@@ -187,10 +121,72 @@ void rgb_initDMA(void)
 }
 
 
-void rgb_initNVIC(void)
+void rgb_init_nvic()
 {
   interrupt_enable(rgb_dma->irq, DMA_PRIORITY);
 }
+
+
+void rgb_dma_buffer_making() {
+  // generate rgb dma packet of pulse width timings for all LEDs
+  for(uint32_t n=0;n<RGB_LED_NUMBER;n++) {
+    // rgb_led_value contains a (32bit) int that contains the RGB values in G R B format already
+    // so i can just test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
+    for (size_t i = 0; i < RGB_BITS_LED; i++) {
+      if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
+        rgb_timer_buffer32[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+      else
+        rgb_timer_buffer16[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+    }
+  }
+}
+
+void rgb_dma_trigger() {
+  rgb_init_dma();
+  // Enable Transfer-Complete Interrupt
+  LL_DMA_EnableIT_TC(rgb_dma->port, rgb_dma->stream_index);
+  // Enable DMA 
+  LL_DMA_EnableStream(rgb_dma->port, rgb_dma->stream_index);
+  // Enable timer
+  LL_TIM_EnableDMAReq_CC1(RGB_TIMER);
+  LL_TIM_EnableCounter(RGB_TIMER);
+}
+
+void rgb_init() {
+
+  rgb_init_io();
+  rgb_init_tim();
+  rgb_init_nvic();
+  rgb_init_dma();
+
+  for (int i = 0; i < RGB_LED_NUMBER; i++) {
+    rgb_led_value[i] = 0;
+  }
+  if (!rgb_dma_phase)
+    rgb_dma_phase = 3;
+}
+
+
+void rgb_send(int data) {
+  if (!rgb_dma_phase)
+    rgb_dma_phase = 3;
+}
+
+
+void rgb_dma_start() {
+  if (rgb_dma_phase <= 1)
+    return;
+
+  if (rgb_dma_phase == 3) {
+    rgb_dma_buffer_making();
+    rgb_dma_phase = 2;
+    return;
+  }
+
+  rgb_dma_phase = 1;
+  rgb_dma_trigger();
+}
+
 
 void rgb_dma_isr() {
 

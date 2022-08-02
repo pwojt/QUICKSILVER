@@ -26,19 +26,17 @@
 //--------------------------------------------------------------
 // RGB LEDs  --- Not currently working --
 //--------------------------------------------------------------
-#define RGB_LED_NUMBER 0
-//--------------------------------------------------------------
-// DMA => TIM3-CC4 => DMA1, Channel5, Stream2 (See drv_dma.c)
-//--------------------------------------------------------------
-#define RGB_LED_DMA        DMA_DEVICE_TIM3_CH4
+#define  RGB_LED_NUMBER    0
 //--------------------------------------------------------------
 // pin / port for the RGB led
 //--------------------------------------------------------------
-#define RGB_PIN LL_GPIO_PIN_1
-#define RGB_PORT GPIOB
-#define RGB_PIN_CLOCK LL_AHB1_GRP1_PERIPH_GPIOB
+#define  RGB_PIN           PIN_B1
 //--------------------------------------------------------------
-// Timer for the data signal => TIM2
+// DMA => TIM3-CC4 => DMA1, Channel5, Stream2 (See drv_dma.c)
+//--------------------------------------------------------------
+//#define  RGB_LED_DMA       DMA_DEVICE_TIM3_CH4
+//--------------------------------------------------------------
+// Timer for the data signal => TIM3
 //--------------------------------------------------------------
 #define  RGB_TIM_CLOCK     LL_APB1_GRP1_PERIPH_TIM3
 #define  RGB_TIMER         TIM3
