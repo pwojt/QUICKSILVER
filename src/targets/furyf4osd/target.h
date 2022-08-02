@@ -22,6 +22,29 @@
 #define LED2PIN PIN_B4
 #define LED2_INVERT
 
+//--------------------------------------------------------------
+// RGB LEDs  --- configuration for AvaraKaisa ---
+//--------------------------------------------------------------
+#define RGB_LED_NUMBER 40
+//--------------------------------------------------------------
+// DMA => TIM2-CC1 => DMA1, Channel3, Stream5 (See drv_dma.c)
+//--------------------------------------------------------------
+#define RGB_LED_DMA       DMA_DEVICE_TIM2_CH1
+//--------------------------------------------------------------
+// pin / port for the RGB led
+//--------------------------------------------------------------
+#define RGB_PIN LL_GPIO_PIN_0
+#define RGB_PORT GPIOA
+#define RGB_PIN_CLOCK LL_AHB1_GRP1_PERIPH_GPIOA
+//--------------------------------------------------------------
+// Timer for the data signal => TIM2
+//--------------------------------------------------------------
+#define  RGB_TIM_CLOCK     LL_APB1_GRP1_PERIPH_TIM2
+#define  RGB_TIMER         TIM2
+#define  RGB_TIM_CHAN      LL_TIM_CHANNEL_CH1
+#define  RGB_TIM_CCR       CCR1
+#define  RGB_TIM_AF        GPIO_AF1_TIM2
+
 #define BUZZER_PIN PIN_A8
 //#define BUZZER_INVERT
 

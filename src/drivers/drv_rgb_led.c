@@ -27,13 +27,14 @@ extern int rgb_led_value[];
 
 volatile int rgb_dma_phase = 0; // 3:rgb data ready
                                 // 2:rgb dma buffer ready
-                                //	 wait to be cascaded after dshot, or fired at next frame if no dshot activity
                                 // 1:rgb dma busy
                                 // 0:idle
 
-volatile uint32_t rgb_timer_buffer[RGB_BUFFER_SIZE] = {0}; // DMA buffer: Array of PWM duty cycle timings (+ 50us reset pulse - pulse low)
+// Must be a better way of doing this instead of having two separate arrays!
+volatile uint32_t rgb_timer_buffer32[RGB_BUFFER_SIZE] = {0}; // DMA buffer: 32-bit Array of PWM duty cycle timings 
+volatile uint16_t rgb_timer_buffer16[RGB_BUFFER_SIZE] = {0}; // DMA buffer: 16-bit Array of PWM duty cycle timings
 
-const dma_stream_def_t *rgb_dma = &dma_stream_defs[RGB_DMA];
+const dma_stream_def_t *rgb_dma = &dma_stream_defs[RGB_LED_DMA];
 
 
 void rgb_init() {
@@ -59,7 +60,10 @@ void rgb_dma_buffer_making() {
     // rgb_led_value contains a (32bit) int that contains the RGB values in G R B format already
     // so i can just test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
     for (size_t i = 0; i < RGB_BITS_LED; i++) {
-      rgb_timer_buffer[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+      if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
+        rgb_timer_buffer32[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+      else
+        rgb_timer_buffer16[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
     }
   }
 }
@@ -123,7 +127,7 @@ void rgb_initTIM(void)
   // Clock enable (TIM)
   LL_APB1_GRP1_EnableClock(RGB_TIM_CLOCK);  
   // Clock Enable (DMA)
-  dma_enable_rcc(RGB_DMA);
+  dma_enable_rcc(RGB_LED_DMA);
   
   // Timer init
   LL_TIM_StructInit(&TIM_TimeBaseStructure);
@@ -159,13 +163,20 @@ void rgb_initDMA(void)
   DMA_InitStructure.Channel = rgb_dma->channel;
 #endif
   DMA_InitStructure.PeriphOrM2MSrcAddress = (uint32_t) &RGB_TIMER->RGB_TIM_CCR;
-  DMA_InitStructure.MemoryOrM2MDstAddress = (uint32_t) rgb_timer_buffer;
   DMA_InitStructure.Direction = LL_DMA_DIRECTION_MEMORY_TO_PERIPH;;
   DMA_InitStructure.NbData = RGB_BUFFER_SIZE;
   DMA_InitStructure.PeriphOrM2MSrcIncMode = LL_DMA_PERIPH_NOINCREMENT;
   DMA_InitStructure.MemoryOrM2MDstIncMode = LL_DMA_MEMORY_INCREMENT;
-  DMA_InitStructure.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_WORD; // 32bit
-  DMA_InitStructure.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_WORD;
+  if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5)){
+    DMA_InitStructure.MemoryOrM2MDstAddress = (uint32_t) rgb_timer_buffer32;
+    DMA_InitStructure.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_WORD; // 32bit
+    DMA_InitStructure.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_WORD;
+  }
+  else{
+    DMA_InitStructure.MemoryOrM2MDstAddress = (uint32_t) rgb_timer_buffer16;
+    DMA_InitStructure.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_HALFWORD; // 16bit
+    DMA_InitStructure.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_HALFWORD;
+  }
   DMA_InitStructure.Mode = LL_DMA_MODE_NORMAL;
   DMA_InitStructure.Priority = LL_DMA_PRIORITY_HIGH;
   DMA_InitStructure.FIFOMode = LL_DMA_FIFOMODE_DISABLE;
