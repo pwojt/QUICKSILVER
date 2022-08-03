@@ -21,8 +21,6 @@ typedef enum {
 } rx_serial_protocol_t;
 
 // potentially a debug tool to limit the detection sequence of universal serial
-// todo:  purge this if deemed unnecessary
-//#define RX_SERIAL_PROTOCOL_MAX RX_SERIAL_PROTOCOL_CRSF
 #define RX_SERIAL_PROTOCOL_MAX RX_SERIAL_PROTOCOL_REDPINE_INVERTED
 
 typedef struct {

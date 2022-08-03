@@ -96,7 +96,7 @@
 //#define RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND
 //#define RX_NRF24_BAYANG_TELEMETRY
 
-// *************Serial Receiver UART Selection (uncomment all for default from target or if using spi receiver)																		//todo:  Many missing usart AF setups, So plenty more to do here
+// *************Serial Receiver UART Selection (uncomment all for default from target or if using spi receiver)
 //#define RX_SERIAL SERIAL_PORT1
 //#define RX_SERIAL SERIAL_PORT2
 //#define RX_SERIAL SERIAL_PORT3
