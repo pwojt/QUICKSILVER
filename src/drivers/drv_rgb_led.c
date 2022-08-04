@@ -19,8 +19,8 @@ void rgb_send(int data);
 #ifdef RGB_LED_DMA
 
 #define RGB_BIT_TIME ((PWM_CLOCK_FREQ_HZ / 800000) - 1)
-#define RGB_T0H_TIME (RGB_BIT_TIME * 0.30 + 0.05)
-#define RGB_T1H_TIME (RGB_BIT_TIME * 0.60 + 0.05)
+#define RGB_T0H_TIME (RGB_BIT_TIME / 3)
+#define RGB_T1H_TIME ((RGB_BIT_TIME / 3) * 2)
 #define RGB_BITS_LED 24
 #define RGB_BUFFER_SIZE (RGB_BITS_LED * RGB_LED_NUMBER)
 extern int rgb_led_value[];
@@ -127,11 +127,52 @@ void rgb_init_nvic()
 }
 
 
+static void rgb_enable_dma_request(uint32_t timer_channel) {
+  switch (timer_channel) {
+  case LL_TIM_CHANNEL_CH1:
+    LL_TIM_EnableDMAReq_CC1(RGB_TIMER);
+    break;
+  case LL_TIM_CHANNEL_CH2:
+    LL_TIM_EnableDMAReq_CC2(RGB_TIMER);
+    break;
+  case LL_TIM_CHANNEL_CH3:
+    LL_TIM_EnableDMAReq_CC3(RGB_TIMER);
+    break;
+  case LL_TIM_CHANNEL_CH4:
+    LL_TIM_EnableDMAReq_CC4(RGB_TIMER);
+    break;
+  default:
+    break;
+  }
+  LL_TIM_EnableCounter(RGB_TIMER);
+}
+
+static void rgb_disable_dma_request(uint32_t timer_channel) {
+  LL_TIM_DisableCounter(RGB_TIMER);
+  switch (timer_channel) {
+  case LL_TIM_CHANNEL_CH1:
+    LL_TIM_DisableDMAReq_CC1(RGB_TIMER);
+    break;
+  case LL_TIM_CHANNEL_CH2:
+    LL_TIM_DisableDMAReq_CC2(RGB_TIMER);
+    break;
+  case LL_TIM_CHANNEL_CH3:
+    LL_TIM_DisableDMAReq_CC3(RGB_TIMER);
+    break;
+  case LL_TIM_CHANNEL_CH4:
+    LL_TIM_DisableDMAReq_CC4(RGB_TIMER);
+    break;
+  default:
+    break;
+  }
+}
+
+
 void rgb_dma_buffer_making() {
   // generate rgb dma packet of pulse width timings for all LEDs
   for(uint32_t n=0;n<RGB_LED_NUMBER;n++) {
     // rgb_led_value contains a (32bit) int that contains the RGB values in G R B format already
-    // so i can just test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
+    // Test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
     for (size_t i = 0; i < RGB_BITS_LED; i++) {
       if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
         rgb_timer_buffer32[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
@@ -143,13 +184,9 @@ void rgb_dma_buffer_making() {
 
 void rgb_dma_trigger() {
   rgb_init_dma();
-  // Enable Transfer-Complete Interrupt
   LL_DMA_EnableIT_TC(rgb_dma->port, rgb_dma->stream_index);
-  // Enable DMA 
   LL_DMA_EnableStream(rgb_dma->port, rgb_dma->stream_index);
-  // Enable timer
-  LL_TIM_EnableDMAReq_CC1(RGB_TIMER);
-  LL_TIM_EnableCounter(RGB_TIMER);
+  rgb_enable_dma_request(RGB_TIM_CHAN);
 }
 
 void rgb_init() {
@@ -189,13 +226,8 @@ void rgb_dma_start() {
 
 
 void rgb_dma_isr() {
-
-    // reset TC flag
     dma_clear_flag_tc(rgb_dma->port, rgb_dma->stream_index);
-    // Disable Timer
-    LL_TIM_DisableCounter(RGB_TIMER);
-    // Disable DMA
-    LL_TIM_DisableDMAReq_CC1(RGB_TIMER);
+    rgb_disable_dma_request(RGB_TIM_CHAN);
     LL_DMA_DisableStream(rgb_dma->port, rgb_dma->stream_index);
 
     // Set phase to idle
