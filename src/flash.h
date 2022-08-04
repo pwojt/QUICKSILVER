@@ -7,7 +7,13 @@
 #include "rx_unified_serial.h"
 #include "rx_flysky.h"
 
-#define FLASH_STORAGE_OFFSET FLASH_ALIGN(4)
+#define FMC_MAGIC 0x12AA0001
+#define FMC_MAGIC_SIZE FLASH_ALIGN(4)
+
+#define TARGET_STORAGE_OFFSET 0
+#define TARGET_STORAGE_SIZE FLASH_ALIGN(512)
+
+#define FLASH_STORAGE_OFFSET (TARGET_STORAGE_OFFSET + TARGET_STORAGE_SIZE)
 #define FLASH_STORAGE_SIZE FLASH_ALIGN(32)
 
 typedef struct {
@@ -47,10 +53,7 @@ cbor_result_t cbor_decode_rx_bind_storage_t(cbor_value_t *enc, rx_bind_storage_t
 #define VTX_STORAGE_OFFSET (PROFILE_STORAGE_OFFSET + PROFILE_STORAGE_SIZE)
 #define VTX_STORAGE_SIZE FLASH_ALIGN(512)
 
-#define TARGET_STORAGE_OFFSET (VTX_STORAGE_OFFSET + VTX_STORAGE_SIZE)
-#define TARGET_STORAGE_SIZE 512
-
-#define FMC_END_OFFSET (TARGET_STORAGE_OFFSET + TARGET_STORAGE_SIZE)
+#define FMC_END_OFFSET (VTX_STORAGE_OFFSET + VTX_STORAGE_SIZE)
 
 void flash_save();
 void flash_load();

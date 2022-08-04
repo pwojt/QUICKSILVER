@@ -10,8 +10,6 @@
 #include "project.h"
 #include "util/cbor_helper.h"
 
-#define FMC_HEADER 0x12AA0001
-
 extern const profile_t default_profile;
 extern profile_t profile;
 
@@ -32,19 +30,46 @@ void flash_save() {
   fmc_unlock();
   fmc_erase();
 
-  fmc_write(0, FMC_HEADER);
-
   {
-    uint8_t buffer[FLASH_STORAGE_SIZE];
+    fmc_write(TARGET_STORAGE_OFFSET, FMC_MAGIC | TARGET_STORAGE_OFFSET);
 
-    memcpy(buffer, (uint8_t *)&flash_storage, sizeof(flash_storage_t));
+    const uint32_t offset = TARGET_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = TARGET_STORAGE_SIZE - FMC_MAGIC_SIZE;
 
-    fmc_write_buf(FLASH_STORAGE_OFFSET, buffer, FLASH_STORAGE_SIZE);
+    uint8_t buffer[size];
+    memset(buffer, 0, size);
+
+    cbor_value_t enc;
+    cbor_encoder_init(&enc, buffer, size);
+
+    cbor_result_t res = cbor_encode_target_t(&enc, &target);
+    if (res < CBOR_OK) {
+      fmc_lock();
+      failloop(FAILLOOP_FAULT);
+    }
+
+    fmc_write_buf(offset, buffer, size);
   }
 
   {
-    uint8_t buffer[BIND_STORAGE_SIZE];
-    memset(buffer, 0, BIND_STORAGE_SIZE);
+    fmc_write(FLASH_STORAGE_OFFSET, FMC_MAGIC | FLASH_STORAGE_OFFSET);
+
+    const uint32_t offset = FLASH_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = FLASH_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
+    memcpy(buffer, (uint8_t *)&flash_storage, sizeof(flash_storage_t));
+    fmc_write_buf(offset, buffer, size);
+  }
+
+  {
+    fmc_write(BIND_STORAGE_OFFSET, FMC_MAGIC | BIND_STORAGE_OFFSET);
+
+    const uint32_t offset = BIND_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = BIND_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
+    memset(buffer, 0, size);
 
     if (bind_storage.bind_saved == 0) {
       // reset all bind data
@@ -53,14 +78,19 @@ void flash_save() {
 
     memcpy(buffer, (uint8_t *)&bind_storage, sizeof(rx_bind_storage_t));
 
-    fmc_write_buf(BIND_STORAGE_OFFSET, buffer, BIND_STORAGE_SIZE);
+    fmc_write_buf(offset, buffer, size);
   }
 
   {
-    uint8_t buffer[PROFILE_STORAGE_SIZE];
+    fmc_write(PROFILE_STORAGE_OFFSET, FMC_MAGIC | PROFILE_STORAGE_OFFSET);
+
+    const uint32_t offset = PROFILE_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = PROFILE_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
 
     cbor_value_t enc;
-    cbor_encoder_init(&enc, buffer, PROFILE_STORAGE_SIZE);
+    cbor_encoder_init(&enc, buffer, size);
 
     cbor_result_t res = cbor_encode_profile_t(&enc, &profile);
     if (res < CBOR_OK) {
@@ -68,14 +98,19 @@ void flash_save() {
       failloop(FAILLOOP_FAULT);
     }
 
-    fmc_write_buf(PROFILE_STORAGE_OFFSET, buffer, PROFILE_STORAGE_SIZE);
+    fmc_write_buf(offset, buffer, size);
   }
 
   {
-    uint8_t buffer[VTX_STORAGE_SIZE];
+    fmc_write(TARGET_STORAGE_OFFSET, FMC_MAGIC | VTX_STORAGE_OFFSET);
+
+    const uint32_t offset = VTX_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = VTX_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
 
     cbor_value_t enc;
-    cbor_encoder_init(&enc, buffer, VTX_STORAGE_SIZE);
+    cbor_encoder_init(&enc, buffer, size);
 
     cbor_result_t res = cbor_encode_vtx_settings_t(&enc, &vtx_settings);
     if (res < CBOR_OK) {
@@ -83,34 +118,50 @@ void flash_save() {
       failloop(FAILLOOP_FAULT);
     }
 
-    fmc_write_buf(VTX_STORAGE_OFFSET, buffer, VTX_STORAGE_SIZE);
+    fmc_write_buf(offset, buffer, size);
   }
 
-  {
-    uint8_t buffer[TARGET_STORAGE_SIZE];
-    memset(buffer, 0, TARGET_STORAGE_SIZE);
-
-    cbor_value_t enc;
-    cbor_encoder_init(&enc, buffer, TARGET_STORAGE_SIZE);
-
-    cbor_result_t res = cbor_encode_target_t(&enc, &target);
-    if (res < CBOR_OK) {
-      fmc_lock();
-      failloop(FAILLOOP_FAULT);
-    }
-
-    fmc_write_buf(TARGET_STORAGE_OFFSET, buffer, TARGET_STORAGE_SIZE);
-  }
-
-  fmc_write(FMC_END_OFFSET, FMC_HEADER);
   fmc_lock();
 }
 
 void flash_load() {
-  // check if saved data is present
-  if (fmc_read(0) != FMC_HEADER || fmc_read(FMC_END_OFFSET) != FMC_HEADER) {
-    // Flash was empty, load defaults?
 
+  if (fmc_read(TARGET_STORAGE_OFFSET) == (FMC_MAGIC | TARGET_STORAGE_OFFSET)) {
+    const uint32_t offset = TARGET_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = TARGET_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
+    fmc_read_buf(offset, buffer, size);
+
+    cbor_value_t dec;
+    cbor_decoder_init(&dec, buffer, size);
+    cbor_decode_target_t(&dec, &target);
+  }
+
+  if (fmc_read(FLASH_STORAGE_OFFSET) == (FMC_MAGIC | FLASH_STORAGE_OFFSET)) {
+    const uint32_t offset = FLASH_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = FLASH_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
+
+    fmc_read_buf(offset, buffer, size);
+    memcpy((uint8_t *)&flash_storage, buffer, sizeof(flash_storage_t));
+  }
+
+  if (fmc_read(BIND_STORAGE_OFFSET) == (FMC_MAGIC | BIND_STORAGE_OFFSET)) {
+    const uint32_t offset = BIND_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = BIND_STORAGE_SIZE - FMC_MAGIC_SIZE;
+
+    uint8_t buffer[size];
+
+    fmc_read_buf(offset, buffer, size);
+    memcpy((uint8_t *)&bind_storage, buffer, sizeof(rx_bind_storage_t));
+
+#ifdef RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND
+    extern int rx_bind_load;
+    rx_bind_load = bind_storage.bind_saved;
+#endif
+  } else {
 #ifdef EXPRESS_LRS_UID
     const uint8_t uid[6] = {EXPRESS_LRS_UID};
     bind_storage.bind_saved = 1;
@@ -119,35 +170,17 @@ void flash_load() {
     bind_storage.elrs.magic = 0x37;
     memcpy(bind_storage.elrs.uid, uid, 6);
 #endif
-    return;
   }
 
-  {
-    uint8_t buffer[FLASH_STORAGE_SIZE];
+  if (fmc_read(PROFILE_STORAGE_OFFSET) == (FMC_MAGIC | PROFILE_STORAGE_OFFSET)) {
+    const uint32_t offset = PROFILE_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = PROFILE_STORAGE_SIZE - FMC_MAGIC_SIZE;
 
-    fmc_read_buf(FLASH_STORAGE_OFFSET, buffer, FLASH_STORAGE_SIZE);
-    memcpy((uint8_t *)&flash_storage, buffer, sizeof(flash_storage_t));
-  }
-
-  {
-    uint8_t buffer[BIND_STORAGE_SIZE];
-
-    fmc_read_buf(BIND_STORAGE_OFFSET, buffer, BIND_STORAGE_SIZE);
-    memcpy((uint8_t *)&bind_storage, buffer, sizeof(rx_bind_storage_t));
-
-#ifdef RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND
-    extern int rx_bind_load;
-    rx_bind_load = bind_storage.bind_saved;
-#endif
-  }
-
-  {
-    uint8_t buffer[PROFILE_STORAGE_SIZE];
-
-    fmc_read_buf(PROFILE_STORAGE_OFFSET, buffer, PROFILE_STORAGE_SIZE);
+    uint8_t buffer[size];
+    fmc_read_buf(offset, buffer, size);
 
     cbor_value_t dec;
-    cbor_decoder_init(&dec, buffer, PROFILE_STORAGE_SIZE);
+    cbor_decoder_init(&dec, buffer, size);
 
     cbor_result_t res = cbor_decode_profile_t(&dec, &profile);
     if (res < CBOR_OK) {
@@ -156,32 +189,21 @@ void flash_load() {
     }
   }
 
-  {
-    uint8_t buffer[VTX_STORAGE_SIZE];
+  if (fmc_read(VTX_STORAGE_OFFSET) == (FMC_MAGIC | VTX_STORAGE_OFFSET)) {
+    const uint32_t offset = VTX_STORAGE_OFFSET + FMC_MAGIC_SIZE;
+    const uint32_t size = VTX_STORAGE_SIZE - FMC_MAGIC_SIZE;
 
-    fmc_read_buf(VTX_STORAGE_OFFSET, buffer, VTX_STORAGE_SIZE);
+    uint8_t buffer[size];
+
+    fmc_read_buf(offset, buffer, size);
 
     cbor_value_t dec;
-    cbor_decoder_init(&dec, buffer, VTX_STORAGE_SIZE);
+    cbor_decoder_init(&dec, buffer, size);
 
     cbor_result_t res = cbor_decode_vtx_settings_t(&dec, &vtx_settings);
     if (res < CBOR_OK) {
       fmc_lock();
       failloop(FAILLOOP_FAULT);
     }
-  }
-
-  {
-    uint8_t buffer[TARGET_STORAGE_SIZE];
-    memset(buffer, 0, TARGET_STORAGE_SIZE);
-
-    uint32_t *proxy = (uint32_t *)buffer;
-    for (int i = 0; i < (TARGET_STORAGE_SIZE / 4); i++) {
-      proxy[i] = fmc_read((TARGET_STORAGE_OFFSET / 4) + i);
-    }
-
-    cbor_value_t dec;
-    cbor_decoder_init(&dec, buffer, TARGET_STORAGE_SIZE);
-    cbor_decode_target_t(&dec, &target);
   }
 }
