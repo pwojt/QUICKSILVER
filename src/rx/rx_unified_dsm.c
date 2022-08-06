@@ -36,7 +36,7 @@ extern int current_pid_axis;
 extern int current_pid_term;
 
 #define USART usart_port_defs[serial_rx_port]
-#define SPECTRUM_BIND_PIN target.serial_ports[profile.serial.rx - 1].rx_pin
+#define SPECTRUM_BIND_PIN target.serial_ports[profile.serial.rx - 1].rx
 
 bool rx_serial_process_dsm() {
   bool channels_received = false;

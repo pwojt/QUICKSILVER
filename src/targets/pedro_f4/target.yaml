@@ -3,7 +3,7 @@ name: pedro_f4
 led_pin_count: 1
 led_pins:
   - invert: 1
-    pin: PB9
+    pin: PC12
 
 spi_ports:
   - index: 1
@@ -19,8 +19,17 @@ spi_ports:
     mosi: PB5
     sck: PB3
 
-gyro_nss: PC2
-gyro_spi_port: SPI_PORT1
+serial_ports:
+  - index: 3
+    rx: PB11
+    tx: PB10
+  - index: 4
+    rx: PA1
+    tx: PA0
+
+gyro:
+  port: SPI_PORT1
+  nss: PA4
 
 motor_pins:
   - PC8

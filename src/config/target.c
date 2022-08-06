@@ -9,19 +9,6 @@
 
 target_t target = {
     .name = "unknown",
-
-    .led_pins = {},
-    .led_pin_count = 0,
-
-    .motor_pins = {
-        PIN_NONE,
-        PIN_NONE,
-        PIN_NONE,
-        PIN_NONE,
-    },
-
-    .gyro_spi_port = SPI_PORT_INVALID,
-    .gyro_nss = PIN_NONE,
 };
 
 #define _MACRO_STR(arg) #arg
@@ -99,6 +86,10 @@ CBOR_START_STRUCT_ENCODER(spi_port_t)
 SPI_PORT_MEMBERS
 CBOR_END_STRUCT_ENCODER()
 
+CBOR_START_STRUCT_ENCODER(spi_device_t)
+SPI_DEVICE_MEMBERS
+CBOR_END_STRUCT_ENCODER()
+
 CBOR_START_STRUCT_ENCODER(target_t)
 TARGET_MEMBERS
 CBOR_END_STRUCT_ENCODER()
@@ -125,6 +116,10 @@ CBOR_END_STRUCT_DECODER()
 
 CBOR_START_STRUCT_DECODER(spi_port_t)
 SPI_PORT_MEMBERS
+CBOR_END_STRUCT_DECODER()
+
+CBOR_START_STRUCT_DECODER(spi_device_t)
+SPI_DEVICE_MEMBERS
 CBOR_END_STRUCT_DECODER()
 
 CBOR_START_STRUCT_DECODER(target_t)
