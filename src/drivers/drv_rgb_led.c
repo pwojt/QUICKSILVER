@@ -22,7 +22,7 @@ void rgb_send(int data);
 #define RGB_T1H_TIME ((RGB_BIT_TIME / 3) * 2)
 #define RGB_BITS_LED 24
 #define RGB_DELAY_BUF 42
-#define RGB_BUFFER_SIZE (RGB_BITS_LED * RGB_LED_NUMBER + RGB_DELAY_BUF)
+#define RGB_BUFFER_SIZE (RGB_BITS_LED * RGB_LED_MAX + RGB_DELAY_BUF)
 extern int rgb_led_value[];
 
 volatile int rgb_dma_phase = 0; // 3:rgb data ready

@@ -5,13 +5,9 @@
 #include "drv_timer.h"
 #include "project.h"
 
-#if defined(RGB_LED_DMA) && RGB_TIM_CLOCK == LL_APB1_GRP1_PERIPH_TIM4
-#define TIMER_INSTANCE TIM5
-#define TIMER_IRQN TIM5_IRQn
-#else
+
 #define TIMER_INSTANCE TIM4
 #define TIMER_IRQN TIM4_IRQn
-#endif
 #define BAUD_DIVIDER 4
 
 typedef enum {
@@ -240,11 +236,8 @@ void soft_serial_rx_update(usart_ports_t port) {
   }
 }
 
-#if defined(RGB_LED_DMA) && RGB_TIM_CLOCK == LL_APB1_GRP1_PERIPH_TIM4
-void TIM5_IRQHandler() {
-#else
+
 void TIM4_IRQHandler() {
-#endif
   if (LL_TIM_IsActiveFlag_UPDATE(TIMER_INSTANCE)) {
     for (uint8_t port = USART_PORTS_MAX; port < SOFT_SERIAL_PORTS_MAX; port++) {
       soft_serial_tx_update(port);

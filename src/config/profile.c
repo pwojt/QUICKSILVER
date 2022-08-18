@@ -493,12 +493,12 @@ const profile_t default_profile = {
         },
     },
     .rgb = {
-        .led_count = 24,
+        .led_count = 32,
         .active_pattern = RGB_PATTERN_RAINBOW,
         .solid_color = {
             .color1 = RGB(0,255,0),
             .color2 = RGB(255,0,0),
-            .modifier_channel = 3    // Throttle
+            .modifier_channel = 3,    // Throttle
         },
         .wave_sequence = {
             .colors = {
@@ -507,39 +507,39 @@ const profile_t default_profile = {
                 RGB(0,255,0),
                 RGB(0,128,128),
                 RGB(0,0,255),
-                RGB(128,0,128)
+                RGB(128,0,128),
             },
             .num_colors = 6,
             .fade_steps = 64,
             .width = 6,
-            .reverse = 0
+            .reverse = 0,
         },
         .led_sequence = {
             .led_map = {
                 {
-                    .led_mask1 = (uint32_t)57,  // first 16 leds (2 bits per led)
+                    .led_mask1 = 57,  // first 16 leds (2 bits per led)
                     .led_mask2 = 0,             // second set of 16 leds
                     .colors = {
                         RGB5BIT(255,0,0),
                         RGB5BIT(128,0,0),
-                        RGB5BIT(64,0,0)
-                    }
+                        RGB5BIT(64,0,0),
+                    },
                 },
                 {
-                    .led_mask1 = (uint32_t)1764,
+                    .led_mask1 = 1764,
                     .led_mask2 = 0,
                     .colors = {
                         RGB5BIT(255,0,0),
                         RGB5BIT(128,0,0),
-                        RGB5BIT(64,0,0)
-                    }
-                }
+                        RGB5BIT(64,0,0),
+                    },
+                },
             },
-            .num_steps = 2,
+            .num_steps = 0,
             .duration = 1000,
-            .pattern_reverse = 0
-        }
-    }
+            .pattern_reverse = 0,
+        },
+    },
 };
 
 #define _MACRO_STR(arg) #arg

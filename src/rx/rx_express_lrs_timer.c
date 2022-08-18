@@ -11,13 +11,9 @@
 #if defined(RX_EXPRESS_LRS) && (defined(USE_SX127X) || defined(USE_SX128X))
 
 #define TIMER_HZ 1000000
-#if defined(RGB_LED_DMA) && RGB_TIM_CLOCK == LL_APB1_GRP1_PERIPH_TIM3
 #define TIMER_INSTANCE TIM5
 #define TIMER_IRQN TIM5_IRQn
-#else
-#define TIMER_INSTANCE TIM3
-#define TIMER_IRQN TIM3_IRQn
-#endif
+
 static bool is_running = false;
 static volatile bool is_tick = false;
 
@@ -148,11 +144,7 @@ void elrs_phase_reset() {
   elrs_lpf_init((elrs_lpf_t *)&pl_state.offset_dx_lpf, 4);
 }
 
-#if defined(RGB_LED_DMA) && RGB_TIM_CLOCK == LL_APB1_GRP1_PERIPH_TIM3
 void TIM5_IRQHandler() {
-#else
-void TIM3_IRQHandler() {
-#endif
   if (LL_TIM_IsActiveFlag_UPDATE(TIMER_INSTANCE) == 1) {
     LL_TIM_ClearFlag_UPDATE(TIMER_INSTANCE);
   }
