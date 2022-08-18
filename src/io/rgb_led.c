@@ -4,6 +4,7 @@
 #include "drv_time.h"
 #include "flight/control.h"
 #include "flight/filter.h"
+#include "profile.h"
 #include "project.h"
 #include "util/util.h"
 
@@ -28,10 +29,8 @@ extern int ledcommand;
 #define DOWNSAMPLE 16
 #define RGB_FILTER_TIME FILTERCALC(1000 * DOWNSAMPLE, RGB_FILTER_TIME_MICROSECONDS)
 
-#if (RGB_LED_NUMBER > 0)
-
 // array with individual led brightnesses
-int rgb_led_value[RGB_LED_NUMBER];
+int rgb_led_value[RGB_LED_MAX];
 
 typedef struct {
   uint32_t led_mask1; // 2 bits per led to allow up to 3 colors (and off)
@@ -115,7 +114,7 @@ void rgb_leds_off()
   pattern_rev = 0;
 }
 
-void rgb_custom_pattern()
+void rgb_pattern_sequence()
 {
   if (time_micros() > last_micros + led_sequence.duration) {
     last_micros = time_micros();
@@ -280,23 +279,28 @@ void rgb_ledflash_twin(int color1, int color2, uint32_t period) {
 
 
 void rgb_led_pattern() {
-	rgb_rainbow();
-	//rgb_led_set_all(RGB_VALUE_INFLIGHT_ON,1);
-	//rgb_ledflash ( RGB( 0 , 0 , 255 ), RGB( 0 , 128 , 0 ), 1000000, 12);
-	//rgb_ledflash_twin( RGB( 0 , 0 , 255 ), RGB( 0 , 128 , 0 ), 1000000);
-	//rgb_knight_rider();
+  switch (profile.rgb.active_pattern) {
+    case RGB_PATTERN_SOLID:
+      rgb_solid_color();
+      break;
+    case RGB_PATTERN_SEQUENCE:
+      rgb_pattern_sequence();
+      //rgb_led_set_all(RGB_VALUE_INFLIGHT_ON,1);
+      //rgb_ledflash ( RGB( 0 , 0 , 255 ), RGB( 0 , 128 , 0 ), 1000000, 12);
+      //rgb_ledflash_twin( RGB( 0 , 0 , 255 ), RGB( 0 , 128 , 0 ), 1000000);
+      //rgb_knight_rider();
+      break;
+    case RGB_PATTERN_RAINBOW:
+      rgb_rainbow();
+      break;
+    default:
+      rgb_led_set_all(RGB_VALUE_INFLIGHT_OFF,1);
+      break;
+  }
 }
 
-void init_patterns() {
-
-}
-
-bool init = false;
 // main function
 void rgb_led_lvc() {
-  if (!init){
-    init_patterns();
-  }
   rgb_loopcount++;
   if (rgb_loopcount > DOWNSAMPLE) {
     rgb_loopcount = 0;
@@ -333,4 +337,3 @@ void rgb_led_lvc() {
   }
 }
 
-#endif
