@@ -6,14 +6,13 @@
 #include "drv_dma.h"
 #include "drv_gpio.h"
 #include "drv_interrupt.h"
-#include "drv_spi.h"
-#include "drv_time.h"
+#include "drv_timer.h"
 #include "flight/control.h"
 #include "profile.h"
 #include "project.h"
 #include "util/util.h"
 
-#if (RGB_LED_NUMBER > 0)
+#ifdef RGB_PIN
 void rgb_send(int data);
 
 #ifdef RGB_LED_DMA
@@ -22,7 +21,8 @@ void rgb_send(int data);
 #define RGB_T0H_TIME (RGB_BIT_TIME / 3)
 #define RGB_T1H_TIME ((RGB_BIT_TIME / 3) * 2)
 #define RGB_BITS_LED 24
-#define RGB_BUFFER_SIZE (RGB_BITS_LED * RGB_LED_NUMBER)
+#define RGB_DELAY_BUF 42
+#define RGB_BUFFER_SIZE (RGB_BITS_LED * RGB_LED_NUMBER + RGB_DELAY_BUF)
 extern int rgb_led_value[];
 
 volatile int rgb_dma_phase = 0; // 3:rgb data ready
@@ -57,29 +57,31 @@ void rgb_init_io()
 
 void rgb_init_tim()
 {
-  LL_TIM_InitTypeDef TIM_TimeBaseStructure;
   LL_TIM_OC_InitTypeDef TIM_OCInitStructure;
 
-  // Clock enable (TIM)
-  LL_APB1_GRP1_EnableClock(RGB_TIM_CLOCK);  
   // Clock Enable (DMA)
   dma_enable_rcc(RGB_LED_DMA);
   
   // Timer init
-  LL_TIM_StructInit(&TIM_TimeBaseStructure);
-  TIM_TimeBaseStructure.Autoreload = RGB_BIT_TIME;
-  TIM_TimeBaseStructure.Prescaler = 0;
-  TIM_TimeBaseStructure.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
-  TIM_TimeBaseStructure.CounterMode = LL_TIM_COUNTERMODE_UP;
-  LL_TIM_Init(RGB_TIMER, &TIM_TimeBaseStructure);
+  timer_init(RGB_TIMER,1,RGB_BIT_TIME);
   
   TIM_OCInitStructure.OCMode = LL_TIM_OCMODE_PWM1;
   TIM_OCInitStructure.OCState = LL_TIM_OCSTATE_ENABLE;
   TIM_OCInitStructure.CompareValue = 0;
   TIM_OCInitStructure.OCPolarity = LL_TIM_OCPOLARITY_HIGH;
-
-  LL_TIM_OC_Init(RGB_TIMER, RGB_TIM_CHAN, &TIM_OCInitStructure);
-  LL_TIM_OC_EnablePreload(RGB_TIMER, RGB_TIM_CHAN);
+#if RGB_TIMER_CHANNEL == 1
+  LL_TIM_OC_Init(RGB_TIMER, LL_TIM_CHANNEL_CH1, &TIM_OCInitStructure);
+  LL_TIM_OC_EnablePreload(RGB_TIMER, LL_TIM_CHANNEL_CH1);
+#elif RGB_TIMER_CHANNEL == 2
+  LL_TIM_OC_Init(RGB_TIMER, LL_TIM_CHANNEL_CH2, &TIM_OCInitStructure);
+  LL_TIM_OC_EnablePreload(RGB_TIMER, LL_TIM_CHANNEL_CH2);
+#elif RGB_TIMER_CHANNEL == 3
+  LL_TIM_OC_Init(RGB_TIMER, LL_TIM_CHANNEL_CH3, &TIM_OCInitStructure);
+  LL_TIM_OC_EnablePreload(RGB_TIMER, LL_TIM_CHANNEL_CH3);
+#elif RGB_TIMER_CHANNEL == 4
+  LL_TIM_OC_Init(RGB_TIMER, LL_TIM_CHANNEL_CH4, &TIM_OCInitStructure);
+  LL_TIM_OC_EnablePreload(RGB_TIMER, LL_TIM_CHANNEL_CH4);
+#endif
   LL_TIM_EnableARRPreload(RGB_TIMER);
 }
 
@@ -96,7 +98,15 @@ void rgb_init_dma()
 #else
   DMA_InitStructure.Channel = rgb_dma->channel;
 #endif
-  DMA_InitStructure.PeriphOrM2MSrcAddress = (uint32_t) &RGB_TIMER->RGB_TIM_CCR;
+#if RGB_TIMER_CHANNEL == 1
+  DMA_InitStructure.PeriphOrM2MSrcAddress = (uint32_t) &RGB_TIMER->CCR1;
+#elif RGB_TIMER_CHANNEL == 2
+  DMA_InitStructure.PeriphOrM2MSrcAddress = (uint32_t) &RGB_TIMER->CCR2;
+#elif RGB_TIMER_CHANNEL == 3
+  DMA_InitStructure.PeriphOrM2MSrcAddress = (uint32_t) &RGB_TIMER->CCR3;
+#elif RGB_TIMER_CHANNEL == 4
+  DMA_InitStructure.PeriphOrM2MSrcAddress = (uint32_t) &RGB_TIMER->CCR4;
+#endif
   DMA_InitStructure.Direction = LL_DMA_DIRECTION_MEMORY_TO_PERIPH;;
   DMA_InitStructure.NbData = RGB_BUFFER_SIZE;
   DMA_InitStructure.PeriphOrM2MSrcIncMode = LL_DMA_PERIPH_NOINCREMENT;
@@ -127,44 +137,30 @@ void rgb_init_nvic()
 }
 
 
-static void rgb_enable_dma_request(uint32_t timer_channel) {
-  switch (timer_channel) {
-  case LL_TIM_CHANNEL_CH1:
-    LL_TIM_EnableDMAReq_CC1(RGB_TIMER);
-    break;
-  case LL_TIM_CHANNEL_CH2:
-    LL_TIM_EnableDMAReq_CC2(RGB_TIMER);
-    break;
-  case LL_TIM_CHANNEL_CH3:
-    LL_TIM_EnableDMAReq_CC3(RGB_TIMER);
-    break;
-  case LL_TIM_CHANNEL_CH4:
-    LL_TIM_EnableDMAReq_CC4(RGB_TIMER);
-    break;
-  default:
-    break;
-  }
+static void rgb_enable_dma_request() {
+#if RGB_TIMER_CHANNEL == 1
+  LL_TIM_EnableDMAReq_CC1(RGB_TIMER);
+#elif RGB_TIMER_CHANNEL == 2
+  LL_TIM_EnableDMAReq_CC2(RGB_TIMER);
+#elif RGB_TIMER_CHANNEL == 3
+  LL_TIM_EnableDMAReq_CC3(RGB_TIMER);
+#elif RGB_TIMER_CHANNEL == 4
+  LL_TIM_EnableDMAReq_CC4(RGB_TIMER);
+#endif
   LL_TIM_EnableCounter(RGB_TIMER);
 }
 
-static void rgb_disable_dma_request(uint32_t timer_channel) {
+static void rgb_disable_dma_request() {
   LL_TIM_DisableCounter(RGB_TIMER);
-  switch (timer_channel) {
-  case LL_TIM_CHANNEL_CH1:
-    LL_TIM_DisableDMAReq_CC1(RGB_TIMER);
-    break;
-  case LL_TIM_CHANNEL_CH2:
-    LL_TIM_DisableDMAReq_CC2(RGB_TIMER);
-    break;
-  case LL_TIM_CHANNEL_CH3:
-    LL_TIM_DisableDMAReq_CC3(RGB_TIMER);
-    break;
-  case LL_TIM_CHANNEL_CH4:
-    LL_TIM_DisableDMAReq_CC4(RGB_TIMER);
-    break;
-  default:
-    break;
-  }
+#if RGB_TIMER_CHANNEL == 1
+  LL_TIM_DisableDMAReq_CC1(RGB_TIMER);
+#elif RGB_TIMER_CHANNEL == 2
+  LL_TIM_DisableDMAReq_CC2(RGB_TIMER);
+#elif RGB_TIMER_CHANNEL == 3
+  LL_TIM_DisableDMAReq_CC3(RGB_TIMER);
+#elif RGB_TIMER_CHANNEL == 4
+  LL_TIM_DisableDMAReq_CC4(RGB_TIMER);
+#endif
 }
 
 
@@ -175,10 +171,16 @@ void rgb_dma_buffer_making() {
     // Test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
     for (size_t i = 0; i < RGB_BITS_LED; i++) {
       if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
-        rgb_timer_buffer32[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+        rgb_timer_buffer32[(n * RGB_BITS_LED) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
       else
-        rgb_timer_buffer16[(n * 24) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+        rgb_timer_buffer16[(n * RGB_BITS_LED) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
     }
+  }
+  for(uint32_t n=(RGB_LED_NUMBER * RGB_BITS_LED);n<RGB_BUFFER_SIZE;n++) {
+      if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
+        rgb_timer_buffer32[n] = 0;
+      else
+        rgb_timer_buffer16[n] = 0;
   }
 }
 
@@ -186,7 +188,7 @@ void rgb_dma_trigger() {
   rgb_init_dma();
   LL_DMA_EnableIT_TC(rgb_dma->port, rgb_dma->stream_index);
   LL_DMA_EnableStream(rgb_dma->port, rgb_dma->stream_index);
-  rgb_enable_dma_request(RGB_TIM_CHAN);
+  rgb_enable_dma_request();
 }
 
 void rgb_init() {
@@ -227,7 +229,7 @@ void rgb_dma_start() {
 
 void rgb_dma_isr() {
     dma_clear_flag_tc(rgb_dma->port, rgb_dma->stream_index);
-    rgb_disable_dma_request(RGB_TIM_CHAN);
+    rgb_disable_dma_request();
     LL_DMA_DisableStream(rgb_dma->port, rgb_dma->stream_index);
 
     // Set phase to idle

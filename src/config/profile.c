@@ -4,6 +4,7 @@
 
 #include "drv_usb.h"
 #include "io/quic.h"
+#include "io/rgb_led.h"
 #include "osd_render.h"
 #include "rx.h"
 #include "util/cbor_helper.h"
@@ -445,6 +446,11 @@ const profile_t default_profile = {
 #endif
             AUX_CHANNEL_OFF, // AUX_BLACKBOX
             PREARM,          // AUX_PREARM
+#ifdef RGB_PIN               // AUX_LEDS
+            RGBLEDS,
+#else
+            AUX_CHANNEL_OFF,
+#endif
         },
         .lqi_source = RX_LQI_SOURCE_PACKET_RATE,
         .channel_mapping = RX_MAPPING_AETR,
@@ -486,6 +492,54 @@ const profile_t default_profile = {
             ENCODE_OSD_ELEMENT(1, 0, 0, 17),  // OSD_CURRENT_DRAW
         },
     },
+    .rgb = {
+        .led_count = 24,
+        .active_pattern = RGB_PATTERN_RAINBOW,
+        .solid_color = {
+            .color1 = RGB(0,255,0),
+            .color2 = RGB(255,0,0),
+            .modifier_channel = 3    // Throttle
+        },
+        .wave_sequence = {
+            .colors = {
+                RGB(255,0,0),
+                RGB(128,128,0),
+                RGB(0,255,0),
+                RGB(0,128,128),
+                RGB(0,0,255),
+                RGB(128,0,128)
+            },
+            .num_colors = 6,
+            .fade_steps = 64,
+            .width = 6,
+            .reverse = 0
+        },
+        .led_sequence = {
+            .led_map = {
+                {
+                    .led_mask1 = (uint32_t)57,  // first 16 leds (2 bits per led)
+                    .led_mask2 = 0,             // second set of 16 leds
+                    .colors = {
+                        RGB5BIT(255,0,0),
+                        RGB5BIT(128,0,0),
+                        RGB5BIT(64,0,0)
+                    }
+                },
+                {
+                    .led_mask1 = (uint32_t)1764,
+                    .led_mask2 = 0,
+                    .colors = {
+                        RGB5BIT(255,0,0),
+                        RGB5BIT(128,0,0),
+                        RGB5BIT(64,0,0)
+                    }
+                }
+            },
+            .num_steps = 2,
+            .duration = 1000,
+            .pattern_reverse = 0
+        }
+    }
 };
 
 #define _MACRO_STR(arg) #arg
@@ -613,6 +667,26 @@ CBOR_START_STRUCT_ENCODER(profile_voltage_t)
 VOLTAGE_MEMBERS
 CBOR_END_STRUCT_ENCODER()
 
+CBOR_START_STRUCT_ENCODER(rgb_solid_t)
+RGB_SOLID_MEMBERS
+CBOR_END_STRUCT_ENCODER()
+
+CBOR_START_STRUCT_ENCODER(rgb_rainbow_t)
+RGB_RAINBOW_MEMBERS
+CBOR_END_STRUCT_ENCODER()
+
+CBOR_START_STRUCT_ENCODER(rgb_map_t)
+RGB_MAP_MEMBERS
+CBOR_END_STRUCT_ENCODER()
+
+CBOR_START_STRUCT_ENCODER(rgb_sequence_t)
+RGB_SEQ_MEMBERS
+CBOR_END_STRUCT_ENCODER()
+
+CBOR_START_STRUCT_ENCODER(profile_rgb_t)
+RGB_MEMBERS
+CBOR_END_STRUCT_ENCODER()
+
 CBOR_START_STRUCT_ENCODER(pid_rate_t)
 PID_RATE_MEMBERS
 CBOR_END_STRUCT_ENCODER()
@@ -733,6 +807,26 @@ CBOR_END_STRUCT_DECODER()
 
 CBOR_START_STRUCT_DECODER(profile_voltage_t)
 VOLTAGE_MEMBERS
+CBOR_END_STRUCT_DECODER()
+
+CBOR_START_STRUCT_DECODER(rgb_solid_t)
+RGB_SOLID_MEMBERS
+CBOR_END_STRUCT_DECODER()
+
+CBOR_START_STRUCT_DECODER(rgb_rainbow_t)
+RGB_RAINBOW_MEMBERS
+CBOR_END_STRUCT_DECODER()
+
+CBOR_START_STRUCT_DECODER(rgb_map_t)
+RGB_MAP_MEMBERS
+CBOR_END_STRUCT_DECODER()
+
+CBOR_START_STRUCT_DECODER(rgb_sequence_t)
+RGB_SEQ_MEMBERS
+CBOR_END_STRUCT_DECODER()
+
+CBOR_START_STRUCT_DECODER(profile_rgb_t)
+RGB_MEMBERS
 CBOR_END_STRUCT_DECODER()
 
 CBOR_START_STRUCT_DECODER(pid_rate_t)

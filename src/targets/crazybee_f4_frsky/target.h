@@ -24,7 +24,7 @@
 //--------------------------------------------------------------
 // RGB LEDs
 //--------------------------------------------------------------
-#define  RGB_LED_NUMBER    2
+#define  RGB_LED_NUMBER    32
 //--------------------------------------------------------------
 // pin / port for the RGB led
 //--------------------------------------------------------------
@@ -36,10 +36,8 @@
 //--------------------------------------------------------------
 // Timer for the data signal => TIM2
 //--------------------------------------------------------------
-#define  RGB_TIM_CLOCK     LL_APB1_GRP1_PERIPH_TIM2
 #define  RGB_TIMER         TIM2
-#define  RGB_TIM_CHAN      LL_TIM_CHANNEL_CH1
-#define  RGB_TIM_CCR       CCR1
+#define  RGB_TIMER_CHANNEL 1
 #define  RGB_TIM_AF        GPIO_AF1_TIM2
 
 //#define FPV_PIN LL_GPIO_PIN_13

@@ -24,7 +24,7 @@
 //#define BUZZER_INVERT
 
 //--------------------------------------------------------------
-// RGB LEDs  --- Not currently working --
+// RGB LEDs
 //--------------------------------------------------------------
 #define  RGB_LED_NUMBER    2
 //--------------------------------------------------------------
@@ -38,10 +38,8 @@
 //--------------------------------------------------------------
 // Timer for the data signal => TIM3
 //--------------------------------------------------------------
-#define  RGB_TIM_CLOCK     LL_APB1_GRP1_PERIPH_TIM3
 #define  RGB_TIMER         TIM3
-#define  RGB_TIM_CHAN      LL_TIM_CHANNEL_CH4
-#define  RGB_TIM_CCR       CCR4
+#define  RGB_TIMER_CHANNEL 4
 #define  RGB_TIM_AF        GPIO_AF2_TIM3
 
 
