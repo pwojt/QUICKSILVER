@@ -273,14 +273,14 @@ typedef struct {
   ARRAY_MEMBER(colors, 3, uint16) 
 
 typedef struct {
-  rgb_map_t led_map[100];
+  rgb_map_t led_map[10];
   uint8_t num_steps;
   uint32_t duration;
   uint8_t pattern_reverse;
 } rgb_sequence_t;
 
 #define RGB_SEQ_MEMBERS                  \
-  ARRAY_MEMBER(led_map, 100, rgb_map_t)  \
+  ARRAY_MEMBER(led_map, 10, rgb_map_t)  \
   MEMBER(num_steps, uint8)               \
   MEMBER(duration, uint32)               \
   MEMBER(pattern_reverse, uint8)

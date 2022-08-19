@@ -494,7 +494,7 @@ const profile_t default_profile = {
     },
     .rgb = {
         .led_count = 32,
-        .active_pattern = RGB_PATTERN_RAINBOW,
+        .active_pattern = RGB_PATTERN_RAINBOW,   
         .solid_color = {
             .color1 = RGB(0,255,0),
             .color2 = RGB(255,0,0),
@@ -535,10 +535,10 @@ const profile_t default_profile = {
                     },
                 },
             },
-            .num_steps = 0,
+            .num_steps = 2,
             .duration = 1000,
             .pattern_reverse = 0,
-        },
+        },     
     },
 };
 

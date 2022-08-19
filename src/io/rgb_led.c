@@ -32,22 +32,8 @@ extern int ledcommand;
 // array with individual led brightnesses
 int rgb_led_value[RGB_LED_MAX];
 
-typedef struct {
-  uint32_t led_mask1; // 2 bits per led to allow up to 3 colors (and off)
-  uint32_t led_mask2; // one bitmask for each group of 16 LEDs
-  uint16_t colors[LED_MAX_SEQUENCE_COLORS];   // 5 bit colors is still 32k available colors!
-} led_map_t;
-
-typedef struct {
-  led_map_t led_map[LED_MAX_SEQUENCE_LEN];
-  uint8_t num_steps;
-  uint32_t duration;       // duration of each pattern step
-  uint8_t pattern_reverse; // does the pattern reverse at the end, or go back to the start
-} led_sequence_t;
-
-led_sequence_t led_sequence;
 uint32_t current_step = 0;
-uint32_t last_micros = 0;
+uint32_t last_millis = 0;
 int pattern_rev = 0;
 
 // Variables for rainbow wave - to be overwritten by configuration
@@ -56,11 +42,6 @@ uint8_t rainbow_num_colors = 6;
 uint8_t fade_steps = 64;  // steps between each color - more = smoother, slower rainbow / less = faster
 uint8_t rainbow_width_between_colors = 6; // how many leds till the next color (0 = all leds in sync)
 uint8_t rainbow_reverse = 1;              // reverse direction of wave motion
-
-// Variables for Solid colour setting
-uint8_t modifier_channel = 3;
-uint32_t solid_color1 = RGB(0,255,0);
-uint32_t solid_color2 = RGB(255,0,0);
 
 // loop count for downsampling
 int rgb_loopcount = 0;
@@ -110,23 +91,23 @@ void rgb_leds_off()
 {
   rgb_led_set_all(RGB_VALUE_INFLIGHT_OFF,0);
   current_step = 0;
-  last_micros = 0;
+  last_millis = 0;
   pattern_rev = 0;
 }
 
 void rgb_pattern_sequence()
 {
-  if (time_micros() > last_micros + led_sequence.duration) {
-    last_micros = time_micros();
+  if (time_millis() > last_millis + profile.rgb.led_sequence.duration) {
+    last_millis = time_millis();
+    // copy values locally
+    uint64_t led_mask = (uint64_t)profile.rgb.led_sequence.led_map[current_step].led_mask1 | ((uint64_t)profile.rgb.led_sequence.led_map[current_step].led_mask2 << 32);
+    uint16_t colors[4];
+    for (uint8_t i=0;i<3;i++)
+      colors[i+1] = profile.rgb.led_sequence.led_map[current_step].colors[i];
+
     for(uint16_t j=0;j<RGB_LED_NUMBER;j++) {
-      if (j < 16) {
-        int temp_color = led_sequence.led_map[current_step].led_mask1 & (3 << (j*2) >> (j*2));
-        rgb_led_set_one(j,temp_color);
-      }
-      else {
-        int temp_color = led_sequence.led_map[current_step].led_mask2 & (3 << ((j-16)*2) >> ((j-16)*2));
-        rgb_led_set_one(j,temp_color);
-      }
+        int temp_color = (led_mask & (3 << (j*2))) >> (j*2);        
+        rgb_led_set_one(j,RGB5TO8BIT(colors[temp_color]));
     }
 
     if (pattern_rev){
@@ -139,8 +120,8 @@ void rgb_pattern_sequence()
       }
     }
     else {
-      if (current_step == led_sequence.num_steps - 1) {
-        if (led_sequence.pattern_reverse) {
+      if (current_step == profile.rgb.led_sequence.num_steps - 1) {
+        if (profile.rgb.led_sequence.pattern_reverse) {
           pattern_rev = !pattern_rev;
           current_step++;
         }
@@ -155,7 +136,7 @@ void rgb_pattern_sequence()
   }
 }
 
-
+/* Still need to replace the variables with values from profile */
 void rgb_rainbow()
 {
   float factor1, factor2;
@@ -203,31 +184,31 @@ int rgb_fade(int current, int new, float coeff)
 
 void rgb_solid_color()
 {
-  if (solid_color2 != 0) {
-    switch (modifier_channel) {
+  if (profile.rgb.solid_color.color2 != 0) {
+    switch (profile.rgb.solid_color.modifier_channel) {
       case 0:
-        rgb_led_set_all(rgb_fade(solid_color1, solid_color2,(float)((state.rx_filtered.roll + 1) / 2)),0);
+        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,(float)((state.rx_filtered.roll + 1) / 2)),0);
         break;
       case 1:
-        rgb_led_set_all(rgb_fade(solid_color1, solid_color2,(float)((state.rx_filtered.pitch + 1) / 2)),0);
+        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,(float)((state.rx_filtered.pitch + 1) / 2)),0);
         break;
       case 2:
-        rgb_led_set_all(rgb_fade(solid_color1, solid_color2,state.rx_filtered.throttle),0);
+        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,state.rx_filtered.throttle),0);
         break;
       case 3:
-        rgb_led_set_all(rgb_fade(solid_color1, solid_color2,(float)((state.rx_filtered.yaw + 1) / 2)),0);
+        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,(float)((state.rx_filtered.yaw + 1) / 2)),0);
         break;
       default: // one of the aux channels
-        rgb_led_set_all(state.aux[modifier_channel] ? solid_color2 : solid_color1,1);
+        rgb_led_set_all(state.aux[profile.rgb.solid_color.modifier_channel] ? profile.rgb.solid_color.color2 : profile.rgb.solid_color.color1,1);
         break;
     }
   }
   else {
-    rgb_led_set_all(solid_color1,0);
+    rgb_led_set_all(profile.rgb.solid_color.color1,0);
   }
 }
 
-
+/* No longer needed - to be implemented in rgb_pattern_sequence
 // speed of movement
 float KR_SPEED = 0.005f * DOWNSAMPLE;
 
@@ -276,7 +257,7 @@ void rgb_ledflash_twin(int color1, int color2, uint32_t period) {
     }
   }
 }
-
+*/
 
 void rgb_led_pattern() {
   switch (profile.rgb.active_pattern) {
@@ -285,10 +266,6 @@ void rgb_led_pattern() {
       break;
     case RGB_PATTERN_SEQUENCE:
       rgb_pattern_sequence();
-      //rgb_led_set_all(RGB_VALUE_INFLIGHT_ON,1);
-      //rgb_ledflash ( RGB( 0 , 0 , 255 ), RGB( 0 , 128 , 0 ), 1000000, 12);
-      //rgb_ledflash_twin( RGB( 0 , 0 , 255 ), RGB( 0 , 128 , 0 ), 1000000);
-      //rgb_knight_rider();
       break;
     case RGB_PATTERN_RAINBOW:
       rgb_rainbow();
@@ -306,8 +283,7 @@ void rgb_led_lvc() {
     rgb_loopcount = 0;
     // led flash logic
     if (flags.lowbatt) {
-      rgb_led_pattern();
-      //rgb_ledflash(RGB(255, 0, 0), RGB(255, 32, 0), 500000, 8);
+      rgb_ledflash(RGB(255, 0, 0), RGB(255, 32, 0), 500000, 8);
     } else {
       if (flags.rx_mode == RXMODE_BIND) {
         // bind mode
