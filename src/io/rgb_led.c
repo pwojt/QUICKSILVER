@@ -19,9 +19,6 @@ extern int ledcommand;
 // normal flight rgb colour - LED switch OFF
 #define RGB_VALUE_INFLIGHT_OFF RGB(0, 0, 0)
 
-//  colour before bind
-#define RGB_VALUE_BEFORE_BIND RGB(0, 128, 128)
-
 // fade from one color to another when changed
 #define RGB_FILTER_TIME_MICROSECONDS 50e3
 
@@ -32,24 +29,17 @@ extern int ledcommand;
 // array with individual led brightnesses
 int rgb_led_value[RGB_LED_MAX];
 
+// loop count for downsampling
+int rgb_loopcount = 0;
+// variables for pattern/wave sequences
 uint32_t current_step = 0;
 uint32_t last_millis = 0;
 int pattern_rev = 0;
 
-// Variables for rainbow wave - to be overwritten by configuration
-uint32_t rainbow_colors[LED_MAX_WAVE_COLORS] = {RGB(255,0,0),RGB(128,128,0),RGB(0,255,0),RGB(0,128,128),RGB(0,0,255),RGB(128,0,128)};
-uint8_t rainbow_num_colors = 6;
-uint8_t fade_steps = 64;  // steps between each color - more = smoother, slower rainbow / less = faster
-uint8_t rainbow_width_between_colors = 6; // how many leds till the next color (0 = all leds in sync)
-uint8_t rainbow_reverse = 1;              // reverse direction of wave motion
-
-// loop count for downsampling
-int rgb_loopcount = 0;
-
 // rgb low pass filter variables
 float r_filt, g_filt, b_filt;
 
-// sets all leds to a brightness
+// set all leds to a specific color
 void rgb_led_set_all(int rgb, int fade) {
   if (fade) {
     // deconstruct the colour into components
@@ -61,7 +51,6 @@ void rgb_led_set_all(int rgb, int fade) {
     lpf(&r_filt, r, RGB_FILTER_TIME);
     lpf(&g_filt, g, RGB_FILTER_TIME);
     lpf(&b_filt, b, RGB_FILTER_TIME);
-  //*out = (*out) * coeff + in * (1 - coeff);
     int temp = RGB(r_filt, g_filt, b_filt);
 
     for (int i = 0; i < RGB_LED_NUMBER; i++)
@@ -136,7 +125,6 @@ void rgb_pattern_sequence()
   }
 }
 
-/* Still need to replace the variables with values from profile */
 void rgb_rainbow()
 {
   float factor1, factor2;
@@ -145,27 +133,27 @@ void rgb_rainbow()
   for(uint16_t j=0;j<RGB_LED_NUMBER;j++) {
     uint16_t k = j;
     ind = current_step; 
-    if (rainbow_width_between_colors){
-      if (rainbow_reverse)
+    if (profile.rgb.wave_sequence.width > 0){
+      if (profile.rgb.wave_sequence.reverse)
         k = (RGB_LED_NUMBER - 1) - j;
-      ind += j * fade_steps / rainbow_width_between_colors;
+      ind += j * profile.rgb.wave_sequence.fade_steps / profile.rgb.wave_sequence.width;
     }
-    col1 = (int)((ind % (fade_steps * rainbow_num_colors)) / fade_steps);
-    col2 = (col1 + 1) % rainbow_num_colors;
+    col1 = (int)((ind % (profile.rgb.wave_sequence.fade_steps * profile.rgb.wave_sequence.num_colors)) / profile.rgb.wave_sequence.fade_steps);
+    col2 = (col1 + 1) % profile.rgb.wave_sequence.num_colors;
     // deconstruct the colour into components
-    g1 = rainbow_colors[col1] >> 16;
-    r1 = (rainbow_colors[col1] & 0x0000FF00) >> 8;
-    b1 = rainbow_colors[col1] & 0xff;
-    g2 = rainbow_colors[col2] >> 16;
-    r2 = (rainbow_colors[col2] & 0x0000FF00) >> 8;
-    b2 = rainbow_colors[col2] & 0xff;
+    g1 = profile.rgb.wave_sequence.colors[col1] >> 16;
+    r1 = (profile.rgb.wave_sequence.colors[col1] & 0x0000FF00) >> 8;
+    b1 = profile.rgb.wave_sequence.colors[col1] & 0xff;
+    g2 = profile.rgb.wave_sequence.colors[col2] >> 16;
+    r2 = (profile.rgb.wave_sequence.colors[col2] & 0x0000FF00) >> 8;
+    b2 = profile.rgb.wave_sequence.colors[col2] & 0xff;
 
-    factor1 = 1.0 - ((float)(ind % (fade_steps * rainbow_num_colors) - col1 * fade_steps) / fade_steps);
-    factor2 = (float)((int)(ind - (col1 * fade_steps)) % (fade_steps * rainbow_num_colors)) / fade_steps;
+    factor1 = 1.0 - ((float)(ind % (profile.rgb.wave_sequence.fade_steps * profile.rgb.wave_sequence.num_colors) - col1 * profile.rgb.wave_sequence.fade_steps) / profile.rgb.wave_sequence.fade_steps);
+    factor2 = (float)((int)(ind - (col1 * profile.rgb.wave_sequence.fade_steps)) % (profile.rgb.wave_sequence.fade_steps * profile.rgb.wave_sequence.num_colors)) / profile.rgb.wave_sequence.fade_steps;
     rgb_led_set_one(k, RGB((int)(r1 * factor1 + r2 * factor2), (int)(g1 * factor1 + g2 * factor2), (int)(b1 * factor1 + b2 * factor2)));
   }
   current_step++;
-  if(current_step > (fade_steps * rainbow_num_colors)) {current_step = 0; }
+  if(current_step > (profile.rgb.wave_sequence.fade_steps * profile.rgb.wave_sequence.num_colors)) {current_step = 0; }
 }
 
 
@@ -239,24 +227,6 @@ void rgb_knight_rider() {
   }
 }
 
-// 2 led flasher
-void rgb_ledflash_twin(int color1, int color2, uint32_t period) {
-  if (time_micros() % period > (period / 2)) {
-    for (int i = 0; i < RGB_LED_NUMBER; i++) {
-      if ((i / 2) * 2 == i)
-        rgb_led_set_one(i, color1);
-      else
-        rgb_led_set_one(i, color2);
-    }
-  } else {
-    for (int i = 0; i < RGB_LED_NUMBER; i++) {
-      if ((i / 2) * 2 == i)
-        rgb_led_set_one(i, color2);
-      else
-        rgb_led_set_one(i, color1);
-    }
-  }
-}
 */
 
 void rgb_led_pattern() {
@@ -282,17 +252,17 @@ void rgb_led_lvc() {
   if (rgb_loopcount > DOWNSAMPLE) {
     rgb_loopcount = 0;
     // led flash logic
-    if (flags.lowbatt) {
-      rgb_ledflash(RGB(255, 0, 0), RGB(255, 32, 0), 500000, 8);
+    if (flags.lowbatt && profile.rgb.low_bat1 > 0 && profile.rgb.low_bat2 > 0) {
+      // Only flash low bat if at least one colour has been selected (some may not want to flash the LEDs)
+      rgb_ledflash(profile.rgb.low_bat1, profile.rgb.low_bat2, 500000, 8);
     } else {
       if (flags.rx_mode == RXMODE_BIND) {
-        // bind mode
-        //rgb_led_pattern();
-        rgb_led_set_all(RGB_VALUE_BEFORE_BIND,1);
+        // bind mode (fast flash, not customizable)
+        rgb_ledflash(RGB(0, 128, 128), RGB(32, 32, 32), 50000, 12);
       } else { // non bind
         if (flags.failsafe) {
           // failsafe flash
-          rgb_ledflash(RGB(0, 128, 0), RGB(0, 0, 128), 500000, 8);
+          rgb_ledflash(profile.rgb.failsafe1, profile.rgb.failsafe2, 500000, 8);
         } else {
           if (rx_aux_on(AUX_LEDS))
 		  	    rgb_led_pattern();
@@ -301,15 +271,8 @@ void rgb_led_lvc() {
         }
       }
     }
-#ifdef RGB_LED_DMA
     // send dma start signal
     rgb_send(0);
-#else
-    // send data to leds
-    for (int i = 0; i < RGB_LED_NUMBER; i++) {
-      rgb_send(rgb_led_value[i]);
-    }
-#endif
   }
 }
 

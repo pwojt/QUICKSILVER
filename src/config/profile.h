@@ -273,14 +273,14 @@ typedef struct {
   ARRAY_MEMBER(colors, 3, uint16) 
 
 typedef struct {
-  rgb_map_t led_map[10];
+  rgb_map_t led_map[50];
   uint8_t num_steps;
   uint32_t duration;
   uint8_t pattern_reverse;
 } rgb_sequence_t;
 
 #define RGB_SEQ_MEMBERS                  \
-  ARRAY_MEMBER(led_map, 10, rgb_map_t)  \
+  ARRAY_MEMBER(led_map, 50, rgb_map_t)  \
   MEMBER(num_steps, uint8)               \
   MEMBER(duration, uint32)               \
   MEMBER(pattern_reverse, uint8)
@@ -313,13 +313,17 @@ typedef struct {
 
 typedef enum {
   RGB_PATTERN_SOLID,
-  RGB_PATTERN_SEQUENCE,
   RGB_PATTERN_RAINBOW,
+  RGB_PATTERN_SEQUENCE,
   RGB_PATTERN_MAX,
 } rgb_pattern_t;
 
 typedef struct {
   uint8_t led_count;
+  uint32_t low_bat1;
+  uint32_t low_bat2;
+  uint32_t failsafe1;
+  uint32_t failsafe2;
   rgb_pattern_t active_pattern;
   rgb_solid_t solid_color;
   rgb_rainbow_t wave_sequence;
@@ -328,6 +332,10 @@ typedef struct {
 
 #define RGB_MEMBERS                      \
   MEMBER(led_count, uint8)               \
+  MEMBER(low_bat1, uint32)               \
+  MEMBER(low_bat2, uint32)               \
+  MEMBER(failsafe1, uint32)              \
+  MEMBER(failsafe2, uint32)              \
   MEMBER(active_pattern, uint8)          \
   MEMBER(solid_color, rgb_solid_t)       \
   MEMBER(wave_sequence, rgb_rainbow_t)   \

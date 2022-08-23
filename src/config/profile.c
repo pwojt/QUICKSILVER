@@ -493,12 +493,16 @@ const profile_t default_profile = {
         },
     },
     .rgb = {
-        .led_count = 32,
+        .led_count = 0,
+        .low_bat1 = RGB(255, 0, 0),
+        .low_bat2 = RGB(255, 128, 0),
+        .failsafe1 = RGB(0, 128, 0),
+        .failsafe2 = RGB(0, 0, 128),        
         .active_pattern = RGB_PATTERN_RAINBOW,   
         .solid_color = {
             .color1 = RGB(0,255,0),
             .color2 = RGB(255,0,0),
-            .modifier_channel = 3,    // Throttle
+            .modifier_channel = 2,    // Throttle
         },
         .wave_sequence = {
             .colors = {
@@ -510,15 +514,15 @@ const profile_t default_profile = {
                 RGB(128,0,128),
             },
             .num_colors = 6,
-            .fade_steps = 64,
-            .width = 6,
-            .reverse = 0,
+            .fade_steps = 64,         // steps between each color - more = smoother, slower rainbow / less = faster
+            .width = 6,               // how many leds till the next color (0 = all leds in sync)
+            .reverse = 0,             // reverse direction of wave motion
         },
         .led_sequence = {
             .led_map = {
                 {
                     .led_mask1 = 57,  // first 16 leds (2 bits per led)
-                    .led_mask2 = 0,             // second set of 16 leds
+                    .led_mask2 = 0,   // second set of 16 leds
                     .colors = {
                         RGB5BIT(255,0,0),
                         RGB5BIT(128,0,0),
