@@ -30,9 +30,7 @@ volatile int rgb_dma_phase = 0; // 3:rgb data ready
                                 // 1:rgb dma busy
                                 // 0:idle
 
-// Must be a better way of doing this instead of having two separate arrays!
-volatile uint32_t rgb_timer_buffer32[RGB_BUFFER_SIZE] = {0}; // DMA buffer: 32-bit Array of PWM duty cycle timings 
-volatile uint16_t rgb_timer_buffer16[RGB_BUFFER_SIZE] = {0}; // DMA buffer: 16-bit Array of PWM duty cycle timings
+volatile uint32_t rgb_timer_buffer[RGB_BUFFER_SIZE] = {0}; // DMA buffer: Array of PWM duty cycle timings 
 
 const dma_stream_def_t *rgb_dma = &dma_stream_defs[RGB_LED_DMA];
 
@@ -111,16 +109,9 @@ void rgb_init_dma()
   DMA_InitStructure.NbData = RGB_BUFFER_SIZE;
   DMA_InitStructure.PeriphOrM2MSrcIncMode = LL_DMA_PERIPH_NOINCREMENT;
   DMA_InitStructure.MemoryOrM2MDstIncMode = LL_DMA_MEMORY_INCREMENT;
-  if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5)){
-    DMA_InitStructure.MemoryOrM2MDstAddress = (uint32_t) rgb_timer_buffer32;
-    DMA_InitStructure.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_WORD; // 32bit
-    DMA_InitStructure.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_WORD;
-  }
-  else{
-    DMA_InitStructure.MemoryOrM2MDstAddress = (uint32_t) rgb_timer_buffer16;
-    DMA_InitStructure.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_HALFWORD; // 16bit
-    DMA_InitStructure.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_HALFWORD;
-  }
+  DMA_InitStructure.MemoryOrM2MDstAddress = (uint32_t) rgb_timer_buffer;
+  DMA_InitStructure.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_WORD; // 32bit
+  DMA_InitStructure.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_WORD;
   DMA_InitStructure.Mode = LL_DMA_MODE_NORMAL;
   DMA_InitStructure.Priority = LL_DMA_PRIORITY_HIGH;
   DMA_InitStructure.FIFOMode = LL_DMA_FIFOMODE_DISABLE;
@@ -170,17 +161,11 @@ void rgb_dma_buffer_making() {
     // rgb_led_value contains a (32bit) int that contains the RGB values in G R B format already
     // Test each bit and assign the T1H or T0H depending on whether it is 1 or 0.
     for (size_t i = 0; i < RGB_BITS_LED; i++) {
-      if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
-        rgb_timer_buffer32[(n * RGB_BITS_LED) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
-      else
-        rgb_timer_buffer16[(n * RGB_BITS_LED) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
+      rgb_timer_buffer[(n * RGB_BITS_LED) + i] = (rgb_led_value[n] & (1 << ((RGB_BITS_LED - 1) - i))) ? RGB_T1H_TIME : RGB_T0H_TIME;
     }
   }
   for(uint32_t n=(RGB_LED_NUMBER * RGB_BITS_LED);n<RGB_BUFFER_SIZE;n++) {
-      if ((RGB_TIMER == TIM2) || (RGB_TIMER == TIM5))
-        rgb_timer_buffer32[n] = 0;
-      else
-        rgb_timer_buffer16[n] = 0;
+    rgb_timer_buffer[n] = 0;
   }
 }
 
