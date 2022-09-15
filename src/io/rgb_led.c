@@ -1,5 +1,7 @@
-#include <math.h>
 #include "rgb_led.h"
+
+#include <math.h>
+
 #include "drv_rgb_led.h"
 #include "drv_time.h"
 #include "flight/control.h"
@@ -55,8 +57,7 @@ void rgb_led_set_all(int rgb, int fade) {
 
     for (int i = 0; i < RGB_LED_NUMBER; i++)
       rgb_led_value[i] = temp;
-  }
-  else {
+  } else {
     for (int i = 0; i < RGB_LED_NUMBER; i++)
       rgb_led_value[i] = rgb;
   }
@@ -70,70 +71,63 @@ void rgb_led_set_one(int led_number, int rgb) {
 // flashes between 2 colours, duty cycle 1 - 15
 void rgb_ledflash(int color1, int color2, uint32_t period, int duty) {
   if (time_micros() % period > (period * duty) >> 4) {
-    rgb_led_set_all(color1,1);
+    rgb_led_set_all(color1, 1);
   } else {
-    rgb_led_set_all(color2,1);
+    rgb_led_set_all(color2, 1);
   }
 }
 
-void rgb_leds_off()
-{
-  rgb_led_set_all(RGB_VALUE_INFLIGHT_OFF,0);
+void rgb_leds_off() {
+  rgb_led_set_all(RGB_VALUE_INFLIGHT_OFF, 0);
   current_step = 0;
   last_millis = 0;
   pattern_rev = 0;
 }
 
-void rgb_pattern_sequence()
-{
+void rgb_pattern_sequence() {
   if (time_millis() > last_millis + profile.rgb.led_sequence.duration) {
     last_millis = time_millis();
     // copy values locally
     uint64_t led_mask = (uint64_t)profile.rgb.led_sequence.led_map[current_step].led_mask1 | ((uint64_t)profile.rgb.led_sequence.led_map[current_step].led_mask2 << 32);
     uint16_t colors[4];
-    for (uint8_t i=0;i<3;i++)
-      colors[i+1] = profile.rgb.led_sequence.led_map[current_step].colors[i];
+    for (uint8_t i = 0; i < 3; i++)
+      colors[i + 1] = profile.rgb.led_sequence.led_map[current_step].colors[i];
 
-    for(uint16_t j=0;j<RGB_LED_NUMBER;j++) {
-        int temp_color = (led_mask & (3 << (j*2))) >> (j*2);        
-        rgb_led_set_one(j,RGB5TO8BIT(colors[temp_color]));
+    for (uint16_t j = 0; j < RGB_LED_NUMBER; j++) {
+      int temp_color = (led_mask & (3 << (j * 2))) >> (j * 2);
+      rgb_led_set_one(j, RGB5TO8BIT(colors[temp_color]));
     }
 
-    if (pattern_rev){
-      if (current_step == 0){
+    if (pattern_rev) {
+      if (current_step == 0) {
         pattern_rev = !pattern_rev;
         current_step++;
-      }
-      else {
+      } else {
         current_step--;
       }
-    }
-    else {
+    } else {
       if (current_step == profile.rgb.led_sequence.num_steps - 1) {
         if (profile.rgb.led_sequence.pattern_reverse) {
           pattern_rev = !pattern_rev;
           current_step++;
-        }
-        else {
+        } else {
           current_step = 0;
         }
-      }
-      else {
+      } else {
         current_step++;
       }
     }
   }
 }
 
-void rgb_rainbow()
-{
+void rgb_rainbow() {
   float factor1, factor2;
   uint16_t ind;
-  uint16_t col1,col2,r1,g1,b1,r2,g2,b2;
-  for(uint16_t j=0;j<RGB_LED_NUMBER;j++) {
+  uint16_t col1, col2, r1, g1, b1, r2, g2, b2;
+  for (uint16_t j = 0; j < RGB_LED_NUMBER; j++) {
     uint16_t k = j;
-    ind = current_step; 
-    if (profile.rgb.wave_sequence.width > 0){
+    ind = current_step;
+    if (profile.rgb.wave_sequence.width > 0) {
       if (profile.rgb.wave_sequence.reverse)
         k = (RGB_LED_NUMBER - 1) - j;
       ind += j * profile.rgb.wave_sequence.fade_steps / profile.rgb.wave_sequence.width;
@@ -153,12 +147,12 @@ void rgb_rainbow()
     rgb_led_set_one(k, RGB((int)(r1 * factor1 + r2 * factor2), (int)(g1 * factor1 + g2 * factor2), (int)(b1 * factor1 + b2 * factor2)));
   }
   current_step++;
-  if(current_step > (profile.rgb.wave_sequence.fade_steps * profile.rgb.wave_sequence.num_colors)) {current_step = 0; }
+  if (current_step > (profile.rgb.wave_sequence.fade_steps * profile.rgb.wave_sequence.num_colors)) {
+    current_step = 0;
+  }
 }
 
-
-int rgb_fade(int current, int new, float coeff)
-{
+int rgb_fade(int current, int new, float coeff) {
   // deconstruct the colour into components
   int g1 = current >> 16;
   int r1 = (current & 0x0000FF00) >> 8;
@@ -167,32 +161,30 @@ int rgb_fade(int current, int new, float coeff)
   int r2 = (new & 0x0000FF00) >> 8;
   int b2 = new & 0xff;
 
-  return RGB((r1 + (r2-r1)*coeff),(g1 + (g2-g1)*coeff),(b1 + (b2-b1)*coeff));
+  return RGB((r1 + (r2 - r1) * coeff), (g1 + (g2 - g1) * coeff), (b1 + (b2 - b1) * coeff));
 }
 
-void rgb_solid_color()
-{
+void rgb_solid_color() {
   if (profile.rgb.solid_color.color2 != 0) {
     switch (profile.rgb.solid_color.modifier_channel) {
-      case 0:
-        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,(float)((state.rx_filtered.roll + 1) / 2)),0);
-        break;
-      case 1:
-        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,(float)((state.rx_filtered.pitch + 1) / 2)),0);
-        break;
-      case 2:
-        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,state.rx_filtered.throttle),0);
-        break;
-      case 3:
-        rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2,(float)((state.rx_filtered.yaw + 1) / 2)),0);
-        break;
-      default: // one of the aux channels
-        rgb_led_set_all(state.aux[profile.rgb.solid_color.modifier_channel] ? profile.rgb.solid_color.color2 : profile.rgb.solid_color.color1,1);
-        break;
+    case 0:
+      rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2, (float)((state.rx_filtered.roll + 1) / 2)), 0);
+      break;
+    case 1:
+      rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2, (float)((state.rx_filtered.pitch + 1) / 2)), 0);
+      break;
+    case 2:
+      rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2, state.rx_filtered.throttle), 0);
+      break;
+    case 3:
+      rgb_led_set_all(rgb_fade(profile.rgb.solid_color.color1, profile.rgb.solid_color.color2, (float)((state.rx_filtered.yaw + 1) / 2)), 0);
+      break;
+    default: // one of the aux channels
+      rgb_led_set_all(state.aux[profile.rgb.solid_color.modifier_channel] ? profile.rgb.solid_color.color2 : profile.rgb.solid_color.color1, 1);
+      break;
     }
-  }
-  else {
-    rgb_led_set_all(profile.rgb.solid_color.color1,0);
+  } else {
+    rgb_led_set_all(profile.rgb.solid_color.color1, 0);
   }
 }
 
@@ -231,18 +223,18 @@ void rgb_knight_rider() {
 
 void rgb_led_pattern() {
   switch (profile.rgb.active_pattern) {
-    case RGB_PATTERN_SOLID:
-      rgb_solid_color();
-      break;
-    case RGB_PATTERN_SEQUENCE:
-      rgb_pattern_sequence();
-      break;
-    case RGB_PATTERN_RAINBOW:
-      rgb_rainbow();
-      break;
-    default:
-      rgb_led_set_all(RGB_VALUE_INFLIGHT_OFF,1);
-      break;
+  case RGB_PATTERN_SOLID:
+    rgb_solid_color();
+    break;
+  case RGB_PATTERN_SEQUENCE:
+    rgb_pattern_sequence();
+    break;
+  case RGB_PATTERN_RAINBOW:
+    rgb_rainbow();
+    break;
+  default:
+    rgb_led_set_all(RGB_VALUE_INFLIGHT_OFF, 1);
+    break;
   }
 }
 
@@ -265,7 +257,7 @@ void rgb_led_lvc() {
           rgb_ledflash(profile.rgb.failsafe1, profile.rgb.failsafe2, 500000, 8);
         } else {
           if (rx_aux_on(AUX_LEDS))
-		  	    rgb_led_pattern();
+            rgb_led_pattern();
           else
             rgb_leds_off();
         }
@@ -275,4 +267,3 @@ void rgb_led_lvc() {
     rgb_send(0);
   }
 }
-
