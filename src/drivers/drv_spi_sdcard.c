@@ -74,8 +74,7 @@ void sdcard_init() {
   gpio_pin_init(&gpio_init, SDCARD_DETECT_PIN);
 #endif
 
-  spi_bus_device_init(&bus);
-  spi_bus_device_reconfigure(&bus, SPI_MODE_LEADING_EDGE, SPI_SPEED_SLOW);
+  spi_bus_device_init(&bus, SPI_MODE_LEADING_EDGE, SPI_SPEED_SLOW);
 }
 
 static bool sdcard_read_detect() {

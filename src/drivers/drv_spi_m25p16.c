@@ -32,8 +32,7 @@ static spi_bus_device_t bus = {
 };
 
 void m25p16_init() {
-  spi_bus_device_init(&bus);
-  spi_bus_device_reconfigure(&bus, SPI_MODE_LEADING_EDGE, M25P16_BAUD_RATE);
+  spi_bus_device_init(&bus, SPI_MODE_LEADING_EDGE, M25P16_BAUD_RATE);
 }
 
 uint8_t m25p16_is_ready() {

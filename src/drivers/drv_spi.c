@@ -115,13 +115,17 @@ static uint32_t spi_find_divder(uint32_t clk_hz) {
   return spi_divider_to_ll(divider);
 }
 
-static void spi_init_pins(spi_ports_t port, gpio_pins_t nss) {
+static void spi_init_pins(spi_ports_t port, gpio_pins_t nss, spi_mode_t mode) {
   LL_GPIO_InitTypeDef gpio_init;
 
   gpio_init.Mode = LL_GPIO_MODE_ALTERNATE;
   gpio_init.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
   gpio_init.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  gpio_init.Pull = LL_GPIO_PULL_UP;
+  if (mode == SPI_MODE_LEADING_EDGE) {
+    gpio_init.Pull = LL_GPIO_PULL_DOWN;
+  } else {
+    gpio_init.Pull = LL_GPIO_PULL_UP;
+  }
   gpio_pin_init_af(&gpio_init, PORT.sck, PORT.gpio_af);
 
   gpio_init.Mode = LL_GPIO_MODE_ALTERNATE;
@@ -346,11 +350,11 @@ static uint8_t spi_transfer(spi_ports_t port, uint8_t *data, uint32_t size) {
   return 1;
 }
 
-void spi_bus_device_init(spi_bus_device_t *bus) {
+void spi_bus_device_init(spi_bus_device_t *bus, spi_mode_t mode, uint32_t hz) {
   bus->txn_head = 0;
   bus->txn_tail = 0;
 
-  spi_init_pins(bus->port, bus->nss);
+  spi_init_pins(bus->port, bus->nss, mode);
   spi_enable_rcc(bus->port);
 
   const spi_port_def_t *port = &spi_port_defs[bus->port];
@@ -363,10 +367,15 @@ void spi_bus_device_init(spi_bus_device_t *bus) {
   default_init.TransferDirection = LL_SPI_FULL_DUPLEX;
   default_init.Mode = LL_SPI_MODE_MASTER;
   default_init.DataWidth = LL_SPI_DATAWIDTH_8BIT;
-  default_init.ClockPolarity = LL_SPI_POLARITY_HIGH;
-  default_init.ClockPhase = LL_SPI_PHASE_2EDGE;
+  if (bus->mode == SPI_MODE_LEADING_EDGE) {
+    default_init.ClockPhase = LL_SPI_PHASE_1EDGE;
+    default_init.ClockPolarity = LL_SPI_POLARITY_LOW;
+  } else {
+    default_init.ClockPhase = LL_SPI_PHASE_2EDGE;
+    default_init.ClockPolarity = LL_SPI_POLARITY_HIGH;
+  }
   default_init.NSS = LL_SPI_NSS_SOFT;
-  default_init.BaudRate = LL_SPI_BAUDRATEPRESCALER_DIV256;
+  default_init.BaudRate = spi_find_divder(hz);
   default_init.BitOrder = LL_SPI_MSB_FIRST;
   default_init.CRCCalculation = LL_SPI_CRCCALCULATION_DISABLE;
   default_init.CRCPoly = 7;
@@ -377,8 +386,7 @@ void spi_bus_device_init(spi_bus_device_t *bus) {
 #endif
   LL_SPI_Init(port->channel, &default_init);
 
-  spi_port_config[bus->port].mode = SPI_MODE_TRAILING_EDGE;
-  spi_port_config[bus->port].hz = 0;
+  spi_bus_device_reconfigure(bus, mode, hz);
 
   spi_dma_init_rx(bus->port);
   spi_dma_init_tx(bus->port);

@@ -62,8 +62,7 @@ static void cc2500_hardware_init() {
   }
 #endif
 
-  spi_bus_device_init(&bus);
-  spi_bus_device_reconfigure(&bus, SPI_MODE_LEADING_EDGE, SPI_SPEED);
+  spi_bus_device_init(&bus, SPI_MODE_LEADING_EDGE, SPI_SPEED);
 }
 
 void cc2500_strobe(uint8_t address) {

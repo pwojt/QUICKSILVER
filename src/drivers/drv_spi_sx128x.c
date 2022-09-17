@@ -37,8 +37,7 @@ void sx128x_init() {
   gpio_init.Pull = LL_GPIO_PULL_NO;
   gpio_pin_init(&gpio_init, SX12XX_RESET_PIN);
 
-  spi_bus_device_init(&bus);
-  spi_bus_device_reconfigure(&bus, true, MHZ_TO_HZ(10));
+  spi_bus_device_init(&bus, SPI_MODE_LEADING_EDGE, MHZ_TO_HZ(10));
 
   gpio_init.Mode = LL_GPIO_MODE_INPUT;
   gpio_init.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;

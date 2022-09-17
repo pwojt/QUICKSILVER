@@ -68,7 +68,7 @@ uint8_t gyro_spi_init() {
   gpio_pin_init(&gpio_init, GYRO_INT);
 #endif
 
-  spi_bus_device_init(&gyro_bus);
+  spi_bus_device_init(&gyro_bus, SPI_MODE_TRAILING_EDGE, MHZ_TO_HZ(0.5));
 
   gyro_type = gyro_spi_detect();
 

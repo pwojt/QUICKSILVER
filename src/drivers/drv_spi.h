@@ -87,7 +87,7 @@ extern const spi_port_def_t spi_port_defs[SPI_PORTS_MAX];
 
 uint8_t spi_dma_is_ready(spi_ports_t port);
 
-void spi_bus_device_init(spi_bus_device_t *bus);
+void spi_bus_device_init(spi_bus_device_t *bus, spi_mode_t mode, uint32_t hz);
 void spi_bus_device_reconfigure(spi_bus_device_t *bus, spi_mode_t mode, uint32_t hz);
 
 void spi_csn_enable(spi_bus_device_t *bus);

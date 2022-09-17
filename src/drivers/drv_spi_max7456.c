@@ -100,8 +100,7 @@ static void max7456_init_display() {
 
 // establish initial boot-up state
 void max7456_init() {
-  spi_bus_device_init(&bus);
-  spi_bus_device_reconfigure(&bus, SPI_MODE_LEADING_EDGE, MAX7456_BAUD_RATE);
+  spi_bus_device_init(&bus, SPI_MODE_LEADING_EDGE, MAX7456_BAUD_RATE);
 
   max7456_init_display();
 }
