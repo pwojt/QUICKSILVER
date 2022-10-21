@@ -72,7 +72,7 @@ static msp_t msp = {
 };
 
 void serial_msp_vtx_init() {
-  if (serial_hdzero_port != USART_PORT_INVALID) {
+  if (serial_hdzero_port != SERIAL_PORT_INVALID) {
     // reuse existing msp for hdz
     msp_vtx = &hdzero_msp;
     return;
@@ -92,7 +92,7 @@ void serial_msp_vtx_init() {
     GPIO_InitStructure.OutputType = LL_GPIO_OUTPUT_OPENDRAIN;
     GPIO_InitStructure.Pull = LL_GPIO_PULL_UP;
     GPIO_InitStructure.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-    gpio_pin_init_af(&GPIO_InitStructure, USART.tx_pin, USART.gpio_af);
+    gpio_pin_init_af(&GPIO_InitStructure, target.serial_ports[serial_smart_audio_port - 1].tx, USART.gpio_af);
 
     LL_USART_InitTypeDef usart_init;
     LL_USART_StructInit(&usart_init);
@@ -116,7 +116,7 @@ void serial_msp_vtx_init() {
 }
 
 vtx_update_result_t serial_msp_vtx_update() {
-  if (serial_hdzero_port != USART_PORT_INVALID) {
+  if (serial_hdzero_port != SERIAL_PORT_INVALID) {
     if (!hdzero_is_ready()) {
       return VTX_WAIT;
     }

@@ -134,7 +134,7 @@ void vtx_update() {
     return;
   }
 
-  if (profile.serial.smart_audio == USART_PORT_INVALID && serial_hdzero_port == USART_PORT_INVALID) {
+  if (profile.serial.smart_audio == SERIAL_PORT_INVALID && serial_hdzero_port == SERIAL_PORT_INVALID) {
     // no serial assigned to vtx or still in use by rx
     return;
   }
@@ -150,7 +150,7 @@ void vtx_update() {
     static vtx_protocol_t protocol_to_check = VTX_PROTOCOL_MSP_VTX;
     static uint8_t protocol_is_init = 0;
 
-    if (serial_hdzero_port != USART_PORT_INVALID) {
+    if (serial_hdzero_port != SERIAL_PORT_INVALID) {
       vtx_settings.protocol = VTX_PROTOCOL_MSP_VTX;
     }
 
