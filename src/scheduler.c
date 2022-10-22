@@ -110,13 +110,12 @@ static void do_run_task(task_t *task) {
 }
 
 static void run_tasks(const uint32_t start_cycles) {
-  uint8_t task_mask = 0;
+  uint8_t task_mask = TASK_MASK_DEFAULT;
 
-  if (flags.on_ground && !flags.arm_state) {
-    task_mask |= TASK_MASK_ON_GROUND;
-  }
   if (flags.in_air || flags.arm_state) {
     task_mask |= TASK_MASK_IN_AIR;
+  } else {
+    task_mask |= TASK_MASK_ON_GROUND;
   }
 
   uint32_t task_index = 0;

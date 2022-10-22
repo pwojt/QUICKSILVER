@@ -13,8 +13,9 @@ typedef enum {
 } task_priority_t;
 
 typedef enum {
-  TASK_MASK_ON_GROUND = (0x1 << 0),
-  TASK_MASK_IN_AIR = (0x1 << 1),
+  TASK_MASK_DEFAULT = (0x1 << 0),
+  TASK_MASK_ON_GROUND = (0x1 << 1),
+  TASK_MASK_IN_AIR = (0x1 << 2),
 
   TASK_MASK_ALWAYS = 0xFF,
 } task_mask_t;
