@@ -1,8 +1,5 @@
 #pragma once
 
-#include "config.h"
-#include "target.h"
-
 typedef enum {
   LOOPTIME_2K = 500,
   LOOPTIME_4K = 250,
@@ -59,26 +56,6 @@ typedef enum {
 #define DMA_RAM
 #endif
 
-// this should be precalculated by the compiler when parameters are constant
-//(1 - alpha. filtertime = 1 / filter-cutoff-frequency) as long as filtertime > sampleperiod
-#define FILTERCALC(sampleperiod, filtertime) (1.0f - (6.0f * (float)(sampleperiod)) / (3.0f * (float)(sampleperiod) + (float)(filtertime)))
-#define MHZ_TO_HZ(mhz) (mhz * 1000000)
-
-#define MAKE_SEMVER(major, minor, patch) ((major << 16) | (minor << 8) | patch)
-
-// Throttle must drop below this value if arming feature is enabled for arming to take place.  MIX_INCREASE_THROTTLE_3 if enabled
-// will also not activate on the ground untill this threshold is passed during takeoff for safety and better staging behavior.
-#define THROTTLE_SAFETY .10f
-
-// x (micro)seconds after loss of tx or low bat before buzzer starts
-#define BUZZER_DELAY 30e6
-
-#ifndef MOTOR_BEEPS_TIMEOUT
-#define MOTOR_BEEPS_TIMEOUT 30e3
-#endif
-
-#define ANGLE_PID_SIZE 2
-
 #if defined(BUZZER_ENABLE) && !defined(BUZZER_PIN)
 #undef BUZZER_ENABLE
 #endif
@@ -107,3 +84,49 @@ typedef enum {
 #if defined(USE_SX127X) || defined(USE_SX128X)
 #define RX_EXPRESS_LRS
 #endif
+
+#define PIN_IDENT(port, num) PIN_##port##num
+#define GPIO_PIN(port, num) PIN_IDENT(port, num),
+
+typedef enum {
+  PIN_NONE,
+#include "gpio_pins.in"
+  PINS_MAX,
+} gpio_pins_t;
+
+#undef GPIO_PIN
+
+typedef enum {
+  MOTOR_PIN0,
+  MOTOR_PIN1,
+  MOTOR_PIN2,
+  MOTOR_PIN3,
+  MOTOR_MAX
+} motor_index_t;
+
+#define SERIAL_IDENT(channel) SERIAL_PORT##channel
+#define SERIAL_PORT(channel) SERIAL_IDENT(channel),
+
+typedef enum {
+  SERIAL_PORT_INVALID,
+#include "serial_ports.in"
+  SERIAL_PORT_MAX,
+} serial_port_index_t;
+
+#undef SERIAL_PORT
+
+#define SPI_IDENT(spi_prt, dma_prt, chan, rx, tx) SPI_PORT##spi_prt
+#define SPI_PORT(spi_prt, dma_prt, chan, rx, tx) SPI_IDENT(spi_prt, dma_prt, chan, rx, tx),
+
+typedef enum {
+  SPI_PORT_INVALID,
+  SPI_PORT1,
+  SPI_PORT2,
+  SPI_PORT3,
+#if defined(STM32F7) || defined(STM32H7)
+  SPI_PORT4,
+#endif
+  SPI_PORT_MAX,
+} spi_port_index_t;
+
+#undef SPI_PORT

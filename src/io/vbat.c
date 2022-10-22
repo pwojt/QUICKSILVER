@@ -4,6 +4,7 @@
 #include "flash.h"
 #include "flight/control.h"
 #include "profile.h"
+#include "util/util.h"
 
 // compensation factor for li-ion internal model
 // zero to bypass

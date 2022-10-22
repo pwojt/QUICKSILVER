@@ -8,6 +8,9 @@
 
 #ifdef BUZZER_ENABLE
 
+// x (micro)seconds after loss of tx or low bat before buzzer starts
+#define BUZZER_DELAY 30e6
+
 static void buzzer_on() {
 #ifdef BUZZER_INVERT
   gpio_pin_reset(BUZZER_PIN);

@@ -11,10 +11,10 @@ extern profile_t profile;
 // set angle pid output limit to sum of both P terms just in case
 #define OUTLIMIT_FLOAT (profile.pid.small_angle.kp + profile.pid.big_angle.kp)
 
-static float apidoutput1[ANGLE_PID_SIZE];
-static float apidoutput2[ANGLE_PID_SIZE];
-static float apidoutput[ANGLE_PID_SIZE];
-static float lasterror[ANGLE_PID_SIZE];
+static float apidoutput1[2];
+static float apidoutput2[2];
+static float apidoutput[2];
+static float lasterror[2];
 
 extern float timefactor;
 

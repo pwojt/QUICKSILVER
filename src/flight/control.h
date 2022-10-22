@@ -99,7 +99,7 @@ typedef struct {
 
   vec4_t motor_mix;
 
-  float angleerror[ANGLE_PID_SIZE];
+  float angleerror[2];
 } control_state_t;
 
 #define STATE_MEMBERS                       \

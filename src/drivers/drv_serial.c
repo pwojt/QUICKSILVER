@@ -385,7 +385,7 @@ bool serial_is_soft(serial_port_index_t port) {
 
 usart_port_def_t usart_port_defs[SERIAL_PORT_MAX] = {
     {},
-#include "serial_ports.in"
+#include "hardware/serial_ports.in"
 };
 
 #undef SERIAL_PORT
@@ -453,6 +453,6 @@ void handle_usart_isr(serial_port_index_t port) {
     handle_usart_isr(SERIAL_IDENT(channel)); \
   }
 
-#include "serial_ports.in"
+#include "hardware/serial_ports.in"
 
 #undef SERIAL_PORT

@@ -3,8 +3,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "hardware.h"
-
 #define MOTOR_OFF -1.0f
 
 typedef enum {

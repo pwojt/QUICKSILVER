@@ -63,6 +63,9 @@ def process_elf(source, target, env):
     section_name = ".config_flash"
 
     target_yaml = env.subst("src/targets/$PIOENV/target.yaml")
+    if not os.path.exists(target_yaml):
+        return
+
     with open(target_yaml, 'r') as f:
         target_config = yaml.load(f, Loader=yaml.Loader)
 
