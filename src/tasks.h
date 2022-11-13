@@ -8,10 +8,10 @@ typedef enum {
   TASK_MAIN,
   TASK_RX,
   TASK_USB,
+  TASK_OSD,
 #ifdef ENABLE_BLACKBOX
   TASK_BLACKBOX,
 #endif
-  TASK_OSD,
   TASK_VTX,
 
   TASK_MAX
