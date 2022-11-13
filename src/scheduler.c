@@ -118,9 +118,14 @@ static void run_tasks(const uint32_t start_cycles) {
   }
 
   uint32_t task_index = 0;
-  while ((time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
+  bool checked_all = false;
+  while (!checked_all || (time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
     task_t *task = task_queue[task_index];
+
     task_index = (task_index + 1) % task_queue_size;
+    if (task_index == 0) {
+      checked_all = true;
+    }
 
     if (!should_run_task(start_cycles, task_mask, task)) {
       continue;
