@@ -118,6 +118,7 @@ static void run_tasks(const uint32_t start_cycles) {
   }
 
   uint32_t task_index = 0;
+  uint32_t last_task_time = time_micros();
   bool checked_all = false;
   while (!checked_all || (time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
     task_t *task = task_queue[task_index];
@@ -132,7 +133,10 @@ static void run_tasks(const uint32_t start_cycles) {
     }
 
     do_run_task(task);
+    last_task_time = time_micros();
   }
+
+  state.cpu_load = (time_micros() - last_task_time);
 }
 
 void looptime_update() {
@@ -216,7 +220,6 @@ void scheduler_update() {
 
   run_tasks(cycles);
 
-  state.cpu_load = (time_micros() - lastlooptime);
   state.loop_counter++;
 }
 
