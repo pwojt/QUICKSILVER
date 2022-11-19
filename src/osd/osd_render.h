@@ -65,6 +65,7 @@ typedef enum {
   OSD_THROTTLE,
   OSD_VTX_CHANNEL,
   OSD_CURRENT_DRAW,
+  OSD_DEBUG,
 
   OSD_ELEMENT_MAX
 } osd_elements_t;

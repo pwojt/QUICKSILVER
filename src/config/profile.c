@@ -415,11 +415,11 @@ const profile_t default_profile = {
         .protocol = RX_PROTOCOL_REDPINE,
 #elif defined(RX_FLYSKY)
         .protocol = RX_PROTOCOL_FLYSKY_AFHDS2A,
-#elif defined(RX_NRF24_BAYANG_TELEMETRY)        
+#elif defined(RX_NRF24_BAYANG_TELEMETRY)
         .protocol = RX_PROTOCOL_NRF24_BAYANG_TELEMETRY,
-#elif defined(RX_BAYANG_PROTOCOL_BLE_BEACON)        
+#elif defined(RX_BAYANG_PROTOCOL_BLE_BEACON)
         .protocol = RX_PROTOCOL_BAYANG_PROTOCOL_BLE_BEACON,
-#elif defined(RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND)        
+#elif defined(RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND)
         .protocol = RX_PROTOCOL_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND,
 #else
         .protocol = RX_PROTOCOL_UNIFIED_SERIAL,
@@ -478,6 +478,7 @@ const profile_t default_profile = {
             ENCODE_OSD_ELEMENT(1, 0, 1, 13),  // OSD_THROTTLE
             ENCODE_OSD_ELEMENT(0, 0, 1, 1),   // OSD_VTX_CHANNEL
             ENCODE_OSD_ELEMENT(1, 0, 1, 14),  // OSD_CURRENT_DRAW
+            ENCODE_OSD_ELEMENT(1, 0, 1, 2),   // OSD_DEBUG
         },
         .elements_hd = {
             ENCODE_OSD_ELEMENT(1, 1, 19, 0),  // OSD_CALLSIGN
@@ -492,6 +493,7 @@ const profile_t default_profile = {
             ENCODE_OSD_ELEMENT(1, 0, 0, 16),  // OSD_THROTTLE
             ENCODE_OSD_ELEMENT(0, 0, 0, 0),   // OSD_VTX_CHANNEL
             ENCODE_OSD_ELEMENT(1, 0, 0, 17),  // OSD_CURRENT_DRAW
+            ENCODE_OSD_ELEMENT(1, 0, 0, 2),   // OSD_DEBUG
         },
     },
 };
@@ -518,13 +520,13 @@ target_info_t target_info = {
     .rx_protocols = {
         RX_PROTOCOL_UNIFIED_SERIAL,
 
-#if defined(RX_NRF24_BAYANG_TELEMETRY)        
+#if defined(RX_NRF24_BAYANG_TELEMETRY)
         RX_PROTOCOL_NRF24_BAYANG_TELEMETRY,
 #endif
-#if defined(RX_BAYANG_PROTOCOL_BLE_BEACON)        
+#if defined(RX_BAYANG_PROTOCOL_BLE_BEACON)
         RX_PROTOCOL_BAYANG_PROTOCOL_BLE_BEACON,
-#endif        
-#if defined(RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND)        
+#endif
+#if defined(RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND)
         RX_PROTOCOL_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND,
 #endif
 
