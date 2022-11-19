@@ -5,8 +5,8 @@
 
 typedef enum {
   TASK_GYRO,
-  TASK_MAIN,
   TASK_RX,
+  TASK_MAIN,
   TASK_USB,
   TASK_OSD,
 #ifdef ENABLE_BLACKBOX
