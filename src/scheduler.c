@@ -7,6 +7,7 @@
 #include "drv_time.h"
 #include "flight/control.h"
 #include "io/usb_configurator.h"
+#include "looptime.h"
 #include "tasks.h"
 #include "util/cbor_helper.h"
 
@@ -17,11 +18,6 @@
 
 #define US_TO_CYCLES(us) ((us)*TICKS_PER_US)
 #define CYCLES_TO_US(cycles) ((cycles) / TICKS_PER_US)
-
-uint8_t looptime_warning;
-uint8_t blown_loop_counter;
-
-static uint32_t lastlooptime;
 
 static FAST_RAM task_t *task_queue[TASK_MAX];
 static FAST_RAM uint32_t task_queue_size = 0;
@@ -108,123 +104,50 @@ static void do_run_task(task_t *task) {
   }
 }
 
-static void run_tasks(const uint32_t start_cycles) {
-  uint8_t task_mask = TASK_MASK_DEFAULT;
-
-  if (flags.in_air || flags.arm_state) {
-    task_mask |= TASK_MASK_IN_AIR;
-  } else {
-    task_mask |= TASK_MASK_ON_GROUND;
-  }
-
-  uint32_t task_index = 0;
-  uint32_t last_task_time = time_micros();
-  bool checked_all = false;
-  while (!checked_all || (time_cycles() - start_cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
-    task_t *task = task_queue[task_index];
-
-    task_index = (task_index + 1) % task_queue_size;
-    if (task_index == 0) {
-      checked_all = true;
-    }
-
-    if (!should_run_task(start_cycles, task_mask, task)) {
-      continue;
-    }
-
-    do_run_task(task);
-    last_task_time = time_micros();
-  }
-
-  state.cpu_load = (time_micros() - last_task_time);
-}
-
-void looptime_update() {
-  // looptime_autodetect sequence
-  static uint8_t loop_delay = 0;
-  if (loop_delay < 200) {
-    loop_delay++;
-  }
-
-  static float loop_avg = 0;
-  static uint8_t loop_counter = 0;
-
-  if (loop_delay >= 200 && loop_counter < 200) {
-    loop_avg += state.looptime_us;
-    loop_counter++;
-  }
-
-  if (loop_counter == 200) {
-    loop_avg /= 200;
-
-    if (loop_avg < 130.f) {
-      state.looptime_autodetect = LOOPTIME_8K;
-    } else if (loop_avg < 255.f) {
-      state.looptime_autodetect = LOOPTIME_4K;
-    } else {
-      state.looptime_autodetect = LOOPTIME_2K;
-    }
-
-    loop_counter++;
-  }
-
-  if (loop_counter == 201) {
-    if (state.cpu_load > state.looptime_autodetect + 5) {
-      blown_loop_counter++;
-    }
-
-    if (blown_loop_counter > 100) {
-      blown_loop_counter = 0;
-      loop_counter = 0;
-      loop_avg = 0;
-      looptime_warning++;
-    }
-  }
-}
-
 void scheduler_init() {
-  // attempt 8k looptime for f405 or 4k looptime for f411
-  state.looptime = LOOPTIME * 1e-6;
-  state.looptime_autodetect = LOOPTIME;
-
-  lastlooptime = time_micros();
+  looptime_init();
 
   for (uint32_t i = 0; i < TASK_MAX; i++) {
     task_queue_push(&tasks[i]);
   }
 }
 
-void scheduler_update() {
-  const uint32_t cycles = time_cycles();
-  const uint32_t time = time_micros();
-  state.looptime_us = ((uint32_t)(time - lastlooptime));
-  lastlooptime = time;
+void scheduler_run() {
+  reset_looptime();
 
-  if (state.looptime_us <= 0) {
-    state.looptime_us = 1;
+  while (1) {
+    const volatile uint32_t cycles = time_cycles();
+
+    looptime_update();
+
+    uint8_t task_mask = TASK_MASK_DEFAULT;
+    if (flags.in_air || flags.arm_state) {
+      task_mask |= TASK_MASK_IN_AIR;
+    } else {
+      task_mask |= TASK_MASK_ON_GROUND;
+    }
+
+    uint32_t task_index = 0;
+    uint32_t last_task_time = time_micros();
+    bool checked_all = false;
+    while (!checked_all || (time_cycles() - cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
+      task_t *task = task_queue[task_index];
+
+      task_index = (task_index + 1) % task_queue_size;
+      if (task_index == 0) {
+        checked_all = true;
+      }
+
+      if (!should_run_task(cycles, task_mask, task)) {
+        continue;
+      }
+
+      do_run_task(task);
+      last_task_time = time_micros();
+    }
+
+    state.cpu_load = (time_micros() - last_task_time);
   }
-
-  // max loop 20ms
-  if (state.looptime_us > 20000) {
-    failloop(FAILLOOP_LOOPTIME);
-  }
-
-  looptime_update();
-
-  state.looptime = state.looptime_us * 1e-6f;
-
-  state.uptime += state.looptime;
-  if (flags.arm_state) {
-    state.armtime += state.looptime;
-  }
-
-  run_tasks(cycles);
-
-  state.loop_counter++;
-}
-
-void reset_looptime() {
-  lastlooptime = time_micros();
 }
 
 #ifdef DEBUG

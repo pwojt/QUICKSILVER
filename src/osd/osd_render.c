@@ -9,6 +9,7 @@
 #include "float.h"
 #include "io/data_flash.h"
 #include "io/vtx.h"
+#include "looptime.h"
 #include "osd_menu.h"
 #include "profile.h"
 #include "project.h"
