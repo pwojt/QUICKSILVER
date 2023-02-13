@@ -1,13 +1,13 @@
-#include "scheduler.h"
+#include "core/scheduler.h"
 
 #include <stdbool.h>
 #include <string.h>
 
-#include "debug.h"
+#include "core/debug.h"
 #include "drv_time.h"
 #include "flight/control.h"
 #include "io/usb_configurator.h"
-#include "looptime.h"
+#include "core/looptime.h"
 #include "tasks.h"
 #include "util/cbor_helper.h"
 

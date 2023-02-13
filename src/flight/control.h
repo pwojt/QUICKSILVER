@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#include "failloop.h"
-#include "looptime.h"
+#include "core/failloop.h"
+#include "core/looptime.h"
 #include "project.h"
 #include "rx.h"
 #include "util/vector.h"

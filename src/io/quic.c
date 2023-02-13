@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "debug.h"
+#include "core/debug.h"
 #include "drv_serial.h"
 #include "drv_serial_4way.h"
 #include "drv_spi_max7456.h"
 #include "drv_usb.h"
-#include "flash.h"
+#include "core/flash.h"
 #include "flight/control.h"
 #include "flight/sixaxis.h"
 #include "io/data_flash.h"
@@ -18,7 +18,7 @@
 #include "osd/osd_render.h"
 #include "profile.h"
 #include "project.h"
-#include "scheduler.h"
+#include "core/scheduler.h"
 #include "util/cbor_helper.h"
 
 #define ENCODE_BUFFER_SIZE 2048
