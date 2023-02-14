@@ -4,10 +4,10 @@
 #include <string.h>
 
 #include "core/debug.h"
+#include "core/looptime.h"
 #include "drv_time.h"
 #include "flight/control.h"
 #include "io/usb_configurator.h"
-#include "core/looptime.h"
 #include "tasks.h"
 #include "util/cbor_helper.h"
 
@@ -19,8 +19,9 @@
 #define US_TO_CYCLES(us) ((us)*TICKS_PER_US)
 #define CYCLES_TO_US(cycles) ((cycles) / TICKS_PER_US)
 
-static FAST_RAM task_t *task_queue[TASK_MAX];
 static FAST_RAM uint32_t task_queue_size = 0;
+static FAST_RAM task_t *task_queue[TASK_MAX];
+static FAST_RAM task_t *active_task = NULL;
 
 static bool task_queue_contains(task_t *task) {
   for (uint32_t i = 0; i < task_queue_size; i++) {
@@ -48,24 +49,14 @@ static bool task_queue_push(task_t *task) {
   return false;
 }
 
-static bool should_run_task(const uint32_t start_cycles, uint8_t task_mask, task_t *task) {
+static bool task_should_run(const uint32_t start_cycles, uint8_t task_mask, task_t *task) {
   if ((task_mask & task->mask) == 0) {
     // task shall not run in this firmware state
     return false;
   }
 
-  if ((int32_t)(task->last_run_time - start_cycles) > 0) {
-    // task was already run this loop
-    return false;
-  }
-
   if (task->poll_func != NULL && !task->poll_func()) {
     // task polled false and does not need updating
-    return false;
-  }
-
-  if (task->period != 0 && (time_cycles() - task->last_run_time) < US_TO_CYCLES(task->period)) {
-    // task has a period, but its not up yet
     return false;
   }
 
@@ -79,13 +70,21 @@ static bool should_run_task(const uint32_t start_cycles, uint8_t task_mask, task
   return true;
 }
 
-static void do_run_task(task_t *task) {
-  const uint32_t start = time_cycles();
+static void task_run(task_t *task) {
+  const volatile uint32_t start = time_cycles();
   task->last_run_time = start;
-  task->func();
-  const int32_t time_taken = time_cycles() - start;
 
+  task->runtime_flags = 0;
+  active_task = task;
+  task->func();
+  active_task = NULL;
+
+  const volatile uint32_t time_taken = time_cycles() - start;
   task->runtime_current = time_taken;
+
+  if (task->runtime_flags & TASK_FLAG_SKIP_STATS) {
+    return;
+  }
 
   if (time_taken < task->runtime_min) {
     task->runtime_min = time_taken;
@@ -104,6 +103,14 @@ static void do_run_task(task_t *task) {
   }
 }
 
+void task_reset_runtime() {
+  if (active_task == NULL) {
+    return;
+  }
+  active_task->runtime_flags |= TASK_FLAG_SKIP_STATS;
+  looptime_reset();
+}
+
 void scheduler_init() {
   looptime_init();
 
@@ -113,7 +120,7 @@ void scheduler_init() {
 }
 
 void scheduler_run() {
-  reset_looptime();
+  looptime_reset();
 
   while (1) {
     const volatile uint32_t cycles = time_cycles();
@@ -127,26 +134,17 @@ void scheduler_run() {
       task_mask |= TASK_MASK_ON_GROUND;
     }
 
-    uint32_t task_index = 0;
-    uint32_t last_task_time = time_micros();
-    bool checked_all = false;
-    while (!checked_all || (time_cycles() - cycles) < US_TO_CYCLES(state.looptime_autodetect - TASK_RUNTIME_BUFFER)) {
-      task_t *task = task_queue[task_index];
-
-      task_index = (task_index + 1) % task_queue_size;
-      if (task_index == 0) {
-        checked_all = true;
+    for (uint32_t i = 0; i < task_queue_size; i++) {
+      task_t *task = task_queue[i];
+      if (task_should_run(cycles, task_mask, task)) {
+        task_run(task);
       }
-
-      if (!should_run_task(cycles, task_mask, task)) {
-        continue;
-      }
-
-      do_run_task(task);
-      last_task_time = time_micros();
     }
 
-    state.cpu_load = (time_micros() - last_task_time);
+    state.cpu_load = CYCLES_TO_US(time_cycles() - cycles);
+
+    while (CYCLES_TO_US(time_cycles() - cycles) < state.looptime_autodetect)
+      __NOP();
   }
 }
 

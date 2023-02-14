@@ -8,7 +8,7 @@ static uint8_t blown_loop_counter;
 
 uint8_t looptime_warning;
 
-void reset_looptime() {
+void looptime_reset() {
   lastlooptime = time_micros();
 }
 
@@ -17,7 +17,7 @@ void looptime_init() {
   state.looptime = LOOPTIME * 1e-6;
   state.looptime_autodetect = LOOPTIME;
 
-  reset_looptime();
+  looptime_reset();
 }
 
 void looptime_update() {

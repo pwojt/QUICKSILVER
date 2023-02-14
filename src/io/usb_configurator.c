@@ -5,6 +5,8 @@
 #include <string.h>
 
 #include "core/debug.h"
+#include "core/reset.h"
+#include "core/scheduler.h"
 #include "drv_serial.h"
 #include "drv_usb.h"
 #include "flight/control.h"
@@ -12,7 +14,6 @@
 #include "io/quic.h"
 #include "profile.h"
 #include "project.h"
-#include "core/reset.h"
 #include "util/crc.h"
 #include "util/ring_buffer.h"
 #include "util/util.h"
@@ -177,6 +178,6 @@ void usb_configurator() {
   }
 
   // this will block and handle all usb traffic while active
-  reset_looptime();
+  task_reset_runtime();
 }
 #pragma GCC diagnostic pop

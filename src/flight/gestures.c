@@ -1,6 +1,7 @@
 #include "flight/gestures.h"
 
 #include "core/flash.h"
+#include "core/scheduler.h"
 #include "flight/control.h"
 #include "flight/pid.h"
 #include "flight/sixaxis.h"
@@ -40,7 +41,7 @@ void gestures() {
           number_of_increments[i][j] = 0;
 
       // reset loop time
-      reset_looptime();
+      task_reset_runtime();
     }
 
     if (command == GESTURE_DUD) {

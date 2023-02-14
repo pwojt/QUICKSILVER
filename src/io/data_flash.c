@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "core/scheduler.h"
 #include "drv_spi_m25p16.h"
 #include "drv_spi_sdcard.h"
 #include "drv_time.h"
@@ -367,7 +368,7 @@ void data_flash_reset() {
 
   state = STATE_ERASE_HEADER;
 
-  reset_looptime();
+  task_reset_runtime();
 }
 
 bool data_flash_restart(uint32_t blackbox_rate, uint32_t looptime) {
