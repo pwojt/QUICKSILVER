@@ -233,6 +233,7 @@ const profile_t default_profile = {
 #ifdef DYNAMIC_FREQ_MAX
         .dterm_dynamic_max = DYNAMIC_FREQ_MAX,
 #endif
+        .gyro_dynamic_notch_enable = 1,
     },
 
     .rate = {
