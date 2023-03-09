@@ -24,52 +24,60 @@ static uint32_t turtle_time = 0;
 static uint8_t turtle_axis = 0;
 static uint8_t turtle_dir = 0;
 
-void turtle_mode_start() {
-  if (flags.on_ground && turtle_state == TURTLE_STAGE_IDLE) {
-    if (state.GEstG.yaw < 0) {
-      // only enable turtle if we are onground
-      flags.turtle_ready = 1;
-    } else {
-      flags.turtle_ready = 0;
-    }
-  } 
+static bool turtle_should_exit() {
+  if (!rx_aux_on(AUX_TURTLE) || rx_aux_on(AUX_MOTOR_TEST)) {
+    // turtle deactivated
+    return true;
+  }
+  if (state.GEstG.yaw > 0.5f) {
+    // quad was flipped
+    return true;
+  }
+  if (!flags.arm_state) {
+    // quad was disarmed
+    return true;
+  }
+  return false;
 }
 
-void turtle_mode_cancel() {
-  flags.turtle_ready = 0;
+static bool turtle_can_activate() {
+  if (!rx_aux_on(AUX_TURTLE) || rx_aux_on(AUX_MOTOR_TEST)) {
+    // turtle deactivated
+    return false;
+  }
+  if (state.GEstG.yaw > 0) {
+    // quad not upside down
+    return false;
+  }
+  if (flags.in_air) {
+    // quad in-air
+    return false;
+  }
+  return true;
 }
 
 void turtle_mode_update() {
-  if (turtle_state != TURTLE_STAGE_IDLE) {
-    // turtle is active
-    flags.turtle = 1;
-
-    if (
-        !flags.turtle_ready ||    // turtle was canceled
-        state.GEstG.yaw > 0.5f || // quad was flipped
-        !flags.arm_state          // quad was disarmed
-    ) {
-      // quad was flipped
-      turtle_state = TURTLE_STAGE_EXIT;
-    }
-  } else {
-    // turtle is in-active
-    flags.turtle = 0;
-  }
-
+turtle_do_more:
   switch (turtle_state) {
   case TURTLE_STAGE_IDLE: {
-    // quad was just armed and upside down, begin the turtle sequence
-    static uint8_t last_armed_state_turtle = 0;
-    if (flags.arm_switch != last_armed_state_turtle) {
-      last_armed_state_turtle = flags.arm_switch;
-
-      // quad was just armed and upside down, begin the turtle sequence
-      if (flags.turtle_ready && flags.arm_switch && (state.GEstG.yaw < 0)) {
-        motor_set_direction(MOTOR_REVERSE);
-        turtle_state = TURTLE_STAGE_START;
-      }
+    static uint8_t last_arm_state = 0;
+    if (flags.arm_state == last_arm_state) {
+      break;
     }
+    last_arm_state = flags.arm_state;
+
+    // quad was just armed and upside down, begin the turtle sequence
+    if (!flags.arm_state) {
+      break;
+    }
+
+    if (turtle_can_activate()) {
+      motor_set_direction(MOTOR_REVERSE);
+      turtle_state = TURTLE_STAGE_START;
+      goto turtle_do_more;
+    }
+
+    motor_set_direction(MOTOR_FORWARD);
     break;
   }
   case TURTLE_STAGE_START:
@@ -79,6 +87,11 @@ void turtle_mode_update() {
     state.rx_override.axis[1] = 0;
     state.rx_override.yaw = 0;
     state.rx_override.axis[3] = 0;
+
+    if (turtle_should_exit()) {
+      turtle_state = TURTLE_STAGE_EXIT;
+      break;
+    }
 
     if (!motor_direction_change_done()) {
       // wait for the motor to sucessfully change
@@ -110,6 +123,11 @@ void turtle_mode_update() {
     break;
 
   case TURTLE_STAGE_ROTATING:
+    if (turtle_should_exit()) {
+      turtle_state = TURTLE_STAGE_EXIT;
+      break;
+    }
+
     state.rx_override.throttle = profile.motor.turtle_throttle_percent / 100.0f;
     if (turtle_dir) {
       state.rx_override.axis[turtle_axis] = 1.0f;
@@ -128,13 +146,11 @@ void turtle_mode_update() {
     flags.motortest_override = 0;
     flags.arm_safety = 1;
     turtle_state = TURTLE_STAGE_IDLE;
-    flags.turtle_ready = 0;
     break;
   }
+
+  flags.turtle = turtle_state != TURTLE_STAGE_IDLE;
 }
 #else
-void turtle_mode_start() {}
-void turtle_mode_cancel() {}
-
 void turtle_mode_update() {}
 #endif
